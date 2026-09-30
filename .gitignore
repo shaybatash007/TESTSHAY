@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+# Originals: 2 GB of camera files. The optimised WebP variants in
+# assets/products are committed; these are only needed to rebuild them, and
+# the pristine copies still live in the source ZIP archives.
+assets/source/
+
+.DS_Store
+*.log

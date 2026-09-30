@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TESTSHAY — Bathroom Fixtures</title>
+    <meta
+      name="description"
+      content="Catalogue of bathroom fixtures: thermostatic showers, basin and kitchen faucets, drainage and accessories. Browse by range and model."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href="#/">
+          <span class="brand-mark" aria-hidden="true">T</span>
+          <span class="brand-text">
+            <strong>TESTSHAY</strong>
+            <span class="brand-sub">Bathroom Fixtures</span>
+          </span>
+        </a>
+
+        <button
+          class="nav-toggle"
+          id="nav-toggle"
+          aria-expanded="false"
+          aria-controls="primary-nav"
+        >
+          <span class="sr-only">Toggle navigation</span>
+          <span class="bar" aria-hidden="true"></span>
+          <span class="bar" aria-hidden="true"></span>
+          <span class="bar" aria-hidden="true"></span>
+        </button>
+
+        <nav class="primary-nav" id="primary-nav" aria-label="Primary">
+          <a href="#/">Catalogue</a>
+          <a href="#/ranges">Ranges</a>
+          <a href="#/about">About</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1"></main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <div>
+          <p class="footer-brand">TESTSHAY</p>
+          <p class="footer-note">
+            Catalogue built from the 2026-04 product archive. Model codes and
+            photography are reproduced as supplied; specifications and pricing
+            are not published in the source files.
+          </p>
+        </div>
+        <p class="footer-meta">
+          <span id="footer-count"></span>
+        </p>
+      </div>
+    </footer>
+
+    <div class="lightbox" id="lightbox" hidden>
+      <button class="lightbox-close" id="lightbox-close" aria-label="Close image viewer">
+        &times;
+      </button>
+      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous image">
+        &#8249;
+      </button>
+      <figure class="lightbox-figure">
+        <img id="lightbox-img" src="" alt="" />
+        <figcaption id="lightbox-cap"></figcaption>
+      </figure>
+      <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next image">
+        &#8250;
+      </button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

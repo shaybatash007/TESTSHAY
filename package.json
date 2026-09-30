@@ -1,0 +1,19 @@
+{
+  "name": "tests hay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TESTSHAY - bathroom fixtures catalogue and storefront",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "optimize": "node scripts/optimize-images.mjs"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5"
+  },
+  "dependencies": {
+    "sharp": "^0.34.4"
+  }
+}
