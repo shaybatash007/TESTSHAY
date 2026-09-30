@@ -1,26 +1,36 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="he" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TESTSHAY — Bathroom Fixtures</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>טסטשיי — אוצר אביזרי אמבטחה</title>
     <meta
       name="description"
-      content="Catalogue of bathroom fixtures: thermostatic showers, basin and kitchen faucets, drainage and accessories. Browse by range and model."
+      content="אוצר של 851 דגמי אביזרי אמבטחה ומקלחת עם 1,242 צילומי מוצר: מקלחות, ברזי כיור, ברזי מטבח, צינורות ואביזרים. חיפוש לפי קוד דגם או לפי סדרה."
     />
+    <meta name="theme-color" content="#070B2E" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=IBM+Plex+Sans+Hebrew:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <a class="skip" href="#main">Skip to content</a>
+    <a class="skip" href="#main">דלג לתוכן הראשי</a>
 
     <header class="site-header">
       <div class="wrap header-inner">
-        <a class="brand" href="#/">
-          <span class="brand-mark" aria-hidden="true">T</span>
+        <a class="brand" href="#/" aria-label="טסטשיי — לדף הבית">
+          <svg class="brand-mark" viewBox="0 0 96 100" aria-hidden="true" focusable="false">
+            <polygon points="0,100 38,0 58,0 96,100 75,100 48,29 21,100" fill="currentColor" />
+            <rect x="40" y="67" width="16" height="16" fill="#FFB23E" />
+          </svg>
           <span class="brand-text">
-            <strong>TESTSHAY</strong>
-            <span class="brand-sub">Bathroom Fixtures</span>
+            <span class="brand-name" dir="ltr">TESTSHAY</span>
+            <span class="brand-sub">אביזרי אמבטחה</span>
           </span>
         </a>
 
@@ -29,17 +39,17 @@
           id="nav-toggle"
           aria-expanded="false"
           aria-controls="primary-nav"
+          aria-label="פתיחת תפריט ניווט"
         >
-          <span class="sr-only">Toggle navigation</span>
           <span class="bar" aria-hidden="true"></span>
           <span class="bar" aria-hidden="true"></span>
           <span class="bar" aria-hidden="true"></span>
         </button>
 
-        <nav class="primary-nav" id="primary-nav" aria-label="Primary">
-          <a href="#/">Catalogue</a>
-          <a href="#/ranges">Ranges</a>
-          <a href="#/about">About</a>
+        <nav class="primary-nav" id="primary-nav" aria-label="ניווט ראשי">
+          <a href="#/">האוצר</a>
+          <a href="#/series">סדרות</a>
+          <a href="#/about">אודות</a>
         </nav>
       </div>
     </header>
@@ -48,33 +58,53 @@
 
     <footer class="site-footer">
       <div class="wrap footer-inner">
-        <div>
-          <p class="footer-brand">TESTSHAY</p>
+        <div class="footer-brand-col">
+          <p class="footer-brand" dir="ltr">TESTSHAY</p>
           <p class="footer-note">
-            Catalogue built from the 2026-04 product archive. Model codes and
-            photography are reproduced as supplied; specifications and pricing
-            are not published in the source files.
+            אוצר שנבנה מארכיון תמונות מוצר מאפריל 2026. קודי הדגמים והצילומים מופיעים כפי
+            שסופקו. מידות, גימורים, ספיקות ומחירים לא נכללו בארכיון ולכן אינם מוצגים כאן.
           </p>
         </div>
-        <p class="footer-meta">
-          <span id="footer-count"></span>
-        </p>
+        <p class="footer-meta"><span id="footer-count"></span></p>
       </div>
     </footer>
 
-    <div class="lightbox" id="lightbox" hidden>
-      <button class="lightbox-close" id="lightbox-close" aria-label="Close image viewer">
-        &times;
+    <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="מציג תמונות">
+      <button class="lightbox-close" id="lightbox-close" aria-label="סגירת מציג התמונות">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M5 5l14 14M19 5L5 19"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
       </button>
-      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous image">
-        &#8249;
+      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="התמונה הקודמת">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M15 5l-7 7 7 7"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
       <figure class="lightbox-figure">
         <img id="lightbox-img" src="" alt="" />
         <figcaption id="lightbox-cap"></figcaption>
       </figure>
-      <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next image">
-        &#8250;
+      <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="התמונה הבאה">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M9 5l7 7-7 7"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
       </button>
     </div>
 
