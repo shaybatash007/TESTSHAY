@@ -36,6 +36,10 @@ function stageContent() {
 
 export default defineConfig({
   plugins: [stageContent()],
+  // GitHub Pages serves the site from https<user>.github.io/<repo>/, so every
+  // emitted URL must be prefixed with the repo path. Without this, index.html
+  // requests /assets/index.js at the domain root and gets a 404.
+  base: "./",
   build: {
     outDir: "dist",
     assetsInlineLimit: 0,
