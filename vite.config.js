@@ -1,32 +1,41 @@
 import { defineConfig } from "vite";
-import { copyFile, mkdir } from "node:fs/promises";
+import { cp, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname);
 
-// The catalogue JSON and the 71 MB of optimised images live in the repo
-// rather than in a public/ folder: they are content, not Vite assets, and
-// keeping them out of publicDir avoids copying them twice on every build.
-// They are copied into dist after the bundle is written.
-function stageStaticAssets() {
+// The optimised image variants (71 MB, 3,600 files) and the catalogue JSON are
+// content rather than Vite assets. Copying 3,600 files individually is slow, so
+// the whole directories are moved into dist after the bundle is written.
+function stageContent() {
   return {
-    name: "stage-static-assets",
+    name: "stage-content",
     apply: "build",
     async closeBundle() {
       const out = path.join(ROOT, "dist");
-      await mkdir(path.join(out, "data"), { recursive: true });
-      await mkdir(path.join(out, "assets", "products"), { recursive: true });
 
-      for (const f of ["products.json", "images.json"]) {
-        await copyFile(path.join(ROOT, "data", f), path.join(out, "data", f));
+      await cp(path.join(ROOT, "data"), path.join(out, "data"), { recursive: true });
+
+      const src = path.join(ROOT, "assets", "products");
+      const dst = path.join(out, "assets", "products");
+      await mkdir(dst, { recursive: true });
+      await cp(src, dst, { recursive: true });
+
+      let bytes = 0;
+      let count = 0;
+      for (const f of await (await import("node:fs/promises")).readdir(dst)) {
+        bytes += (await stat(path.join(dst, f))).size;
+        count++;
       }
-      console.log("staged data/*.json into dist/");
+      console.log(
+        `staged content: ${count} images (${(bytes / 1048576).toFixed(1)} MB) + data/*.json`
+      );
     },
   };
 }
 
 export default defineConfig({
-  plugins: [stageStaticAssets()],
+  plugins: [stageContent()],
   build: {
     outDir: "dist",
     assetsInlineLimit: 0,
