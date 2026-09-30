@@ -33,7 +33,10 @@ jobs:
 
       # The catalogue JSON and the 3,600 generated WebP variants are copied
       # into dist/ by a Vite plugin, so dist/ alone is a complete site.
+      # enablement turns Pages on for the repository if it is not already on.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
