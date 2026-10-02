@@ -3,25 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>טסטשיי — אוצר אביזרי אמבטחה</title>
-    <meta
-      name="description"
-      content="אוצר של 851 דגמי אביזרי אמבטחה ומקלחת עם 1,242 צילומי מוצר: מקלחות, ברזי כיור, ברזי מטבח, צינורות ואביזרים. חיפוש לפי קוד דגם או לפי סדרה."
-    />
     <meta name="theme-color" content="#070B2E" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="description" content="אוצר של 851 דגמי אביזרי אמבטחה ומקלחת עם 1,242 צילומי מוצר: מקלחות, ברזי כיור, ברזי מטבח, צינורות ואביזרים. חיפוש לפי קוד דגם או לפי סדרה." />
+    <title>טסטשיי — אוצר אביזרי אמבטחה</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=IBM+Plex+Sans+Hebrew:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="style" href="/src/styles.css" />
     <link rel="stylesheet" href="/src/styles.css" />
+    <script>
+      // Critical: set dir/lang before paint to avoid flash
+      document.documentElement.lang = "he";
+      document.documentElement.dir = "rtl";
+    </script>
   </head>
   <body>
-    <a class="skip" href="#main">דלג לתוכן הראשי</a>
+    <a class="skip-link" href="#main">דלג לתוכן הראשי</a>
 
-    <header class="site-header">
+    <header class="site-header" role="banner">
       <div class="wrap header-inner">
         <a class="brand" href="#/" aria-label="טסטשיי — לדף הבית">
           <svg class="brand-mark" viewBox="0 0 96 100" aria-hidden="true" focusable="false">
@@ -34,20 +34,14 @@
           </span>
         </a>
 
-        <button
-          class="nav-toggle"
-          id="nav-toggle"
-          aria-expanded="false"
-          aria-controls="primary-nav"
-          aria-label="פתיחת תפריט ניווט"
-        >
+        <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="primary-nav" aria-label="פתיחת תפריט ניווט">
           <span class="bar" aria-hidden="true"></span>
           <span class="bar" aria-hidden="true"></span>
           <span class="bar" aria-hidden="true"></span>
         </button>
 
         <nav class="primary-nav" id="primary-nav" aria-label="ניווט ראשי">
-          <a href="#/">האוצר</a>
+          <a href="#/" aria-current="page">האוצר</a>
           <a href="#/series">סדרות</a>
           <a href="#/about">אודות</a>
         </nav>
@@ -56,57 +50,73 @@
 
     <main id="main" tabindex="-1"></main>
 
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div class="footer-brand-col">
-          <p class="footer-brand" dir="ltr">TESTSHAY</p>
-          <p class="footer-note">
-            אוצר שנבנה מארכיון תמונות מוצר מאפריל 2026. קודי הדגמים והצילומים מופיעים כפי
-            שסופקו. מידות, גימורים, ספיקות ומחירים לא נכללו בארכיון ולכן אינם מוצגים כאן.
-          </p>
+    <footer class="site-footer" role="contentinfo">
+      <div class="wrap">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <svg class="brand-mark" viewBox="0 0 96 100" aria-hidden="true" focusable="false">
+              <polygon points="0,100 38,0 58,0 96,100 75,100 48,29 21,100" fill="currentColor" />
+              <rect x="40" y="67" width="16" height="16" fill="#FFB23E" />
+            </svg>
+            <span class="brand-name" dir="ltr">TESTSHAY</span>
+            <span class="brand-sub">אביזרי אמבטחה</span>
+          </div>
+          <nav aria-label="קישורים מהירים">
+            <h2 class="footer-title">קישורים</h2>
+            <ul class="footer-links">
+              <li><a href="#/">האוצר</a></li>
+              <li><a href="#/series">סדרות</a></li>
+              <li><a href="#/about">אודות האוצר</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="משאבים">
+            <h2 class="footer-title">משאבים</h2>
+            <ul class="footer-links">
+              <li><a href="#/about#specs">דפי מפרט</a></li>
+              <li><a href="#/about#rebuild">בנייה מחדש</a></li>
+              <li><a href="#/about#honesty">תוויות אמת</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="צור קשר">
+            <h2 class="footer-title">צור קשר</h2>
+            <ul class="footer-links">
+              <li><a href="mailto:catalog@testshay.example">catalog@testshay.example</a></li>
+              <!-- The "+" is a bidi neutral character, so in the RTL footer it
+                   resolved to the paragraph direction and detached from the
+                   digits: the number read back as +3210-555-3-279. Pinning the
+                   direction makes the whole string one LTR run. -->
+              <li><a href="tel:+972-3-555-0123"><span dir="ltr">+972-3-555-0123</span></a></li>
+            </ul>
+          </nav>
         </div>
-        <p class="footer-meta"><span id="footer-count"></span></p>
+        <div class="footer-bottom">
+          <p class="footer-meta" id="footer-count"></p>
+          <p class="footer-copyright">נבנה מארכיון תמונות מוצר מאפריל 2026. קודי הדגמים והצילומים מופיעים כפי שסופקו. מידות, גימורים, ספיקות ומחירים לא נכללו בארכיון.</p>
+          <div class="footer-social">
+            <a href="https://github.com/shaybatash007/TESTSHAY" aria-label="GitHub" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.305-.536-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+            </a>
+            <a href="mailto:catalog@testshay.example" aria-label="Email" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
 
     <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="מציג תמונות">
       <button class="lightbox-close" id="lightbox-close" aria-label="סגירת מציג התמונות">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M5 5l14 14M19 5L5 19"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-        </svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
-      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="התמונה הקודמת">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M15 5l-7 7 7 7"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+      <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="התמונה הקודמת"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <figure class="lightbox-figure">
         <img id="lightbox-img" src="" alt="" />
         <figcaption id="lightbox-cap"></figcaption>
       </figure>
-      <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="התמונה הבאה">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M9 5l7 7-7 7"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+      <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="התמונה הבאה"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
+
+    <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
