@@ -434,7 +434,13 @@ p { text-wrap: pretty; }
 @media (max-width: 760px) {
   :root { --header-h: 64px; }
   .nav-toggle { display: flex; }
-  .primary-nav { position: absolute; inset-inline: 0; top: 100%; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5) var(--sp-5); background: rgba(7,11,46,0.98); backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
+  /* Solid rather than rgba(...,0.98) + blur(20px). The panel sits directly over
+     the hero headline: at 98% alpha the copy behind modulated these pixels by
+     4-7/255 (measured row-by-row through the live screenshot), a faint smudge on
+     large glyphs. The backdrop-filter re-blurred the whole strip every scroll
+     frame for no visible gain at that opacity, so dropping both is the cheaper
+     and the cleaner answer. */
+  .primary-nav { position: absolute; inset-inline: 0; top: 100%; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5) var(--sp-5); background: var(--ink); border-bottom: 1px solid var(--line); }
   .primary-nav:not(.is-open) { display: none; }
   .primary-nav a { border-radius: var(--r); }
   .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--sp-3); }
