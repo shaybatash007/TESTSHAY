@@ -15,35 +15,81 @@
   </div>
 
   <div id="stage">
-    <svg id="avatar" viewBox="0 0 400 520" aria-label="Noa">
+    <svg id="avatar" viewBox="-40 0 480 600" preserveAspectRatio="xMidYMid meet" aria-label="Noa">
       <defs>
-        <radialGradient id="bg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#3b2a5a"/><stop offset="1" stop-color="#14101f"/></radialGradient>
-        <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9b48f"/><stop offset="1" stop-color="#d89a74"/></linearGradient>
-        <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a2a1c"/><stop offset="1" stop-color="#1f100a"/></linearGradient>
+        <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ff4f9a" stop-opacity=".55"/><stop offset="1" stop-color="#ff4f9a" stop-opacity="0"/></radialGradient>
+        <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eebb94"/><stop offset="1" stop-color="#d9976f"/></linearGradient>
+        <linearGradient id="armg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c78460"/><stop offset=".42" stop-color="#f1c29c"/><stop offset="1" stop-color="#c4805b"/></linearGradient>
+        <linearGradient id="torsog" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c98662"/><stop offset=".5" stop-color="#f0bf99"/><stop offset="1" stop-color="#c98662"/></linearGradient>
+        <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a3322"/><stop offset=".6" stop-color="#2d170e"/><stop offset="1" stop-color="#1b0d07"/></linearGradient>
+        <radialGradient id="iris" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#9be0b0"/><stop offset=".7" stop-color="#3f8a62"/><stop offset="1" stop-color="#1f4a35"/></radialGradient>
+        <radialGradient id="shade" cx="45%" cy="40%" r="65%"><stop offset=".55" stop-color="#7a3a1c" stop-opacity="0"/><stop offset="1" stop-color="#7a3a1c" stop-opacity=".3"/></radialGradient>
+        <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0407a"/><stop offset="1" stop-color="#a21e55"/></linearGradient>
       </defs>
-      <rect width="400" height="520" fill="url(#bg)"/>
+
+      <circle id="halo" cx="200" cy="330" r="230" fill="url(#glow)"/>
+      <g id="particles"></g>
+
+      <g id="hairBackG">
+        <path d="M88 235 C66 50 334 50 312 235 C334 330 340 440 304 530 C288 556 262 530 256 470 L144 470 C138 530 112 556 96 530 C60 440 66 330 88 235Z" fill="url(#hair)"/>
+        <path d="M120 150 C100 260 104 400 112 500 M150 120 C140 250 140 380 138 470 M280 150 C300 260 296 400 288 500 M250 120 C260 250 260 380 262 470" stroke="#8a5a40" stroke-opacity=".28" stroke-width="3" fill="none"/>
+      </g>
+
       <g id="body">
-        <path d="M60 520 C60 430 110 400 200 400 C290 400 340 430 340 520Z" fill="#c2335a"/>
-        <path d="M60 520 C60 430 110 400 200 400" fill="none" stroke="#8f2142" stroke-width="3"/>
-        <rect x="170" y="330" width="60" height="80" rx="24" fill="url(#skin)"/>
-        <path d="M150 405 Q200 440 250 405 L250 420 Q200 455 150 420Z" fill="#e9b48f"/>
-      </g>
-      <g id="head">
-        <path id="hairBack" d="M92 230 C80 90 320 90 308 230 C312 320 290 380 260 400 L140 400 C110 380 88 320 92 230Z" fill="url(#hair)"/>
-        <ellipse cx="200" cy="235" rx="88" ry="104" fill="url(#skin)"/>
-        <ellipse cx="112" cy="245" rx="10" ry="18" fill="#d89a74"/><ellipse cx="288" cy="245" rx="10" ry="18" fill="#d89a74"/>
-        <ellipse id="blushL" cx="140" cy="272" rx="20" ry="11" fill="#ff6f91" opacity=".25"/>
-        <ellipse id="blushR" cx="260" cy="272" rx="20" ry="11" fill="#ff6f91" opacity=".25"/>
-        <g id="eyes">
-          <g id="eyeL"><ellipse cx="160" cy="232" rx="23" ry="17" fill="#fff"/><circle class="iris" cx="160" cy="232" r="12" fill="#3f7a5a"/><circle class="pupil" cx="160" cy="232" r="6" fill="#0c0c0c"/><circle class="glint" cx="165" cy="226" r="3" fill="#fff"/><path class="lid" d="" fill="url(#skin)"/></g>
-          <g id="eyeR"><ellipse cx="240" cy="232" rx="23" ry="17" fill="#fff"/><circle class="iris" cx="240" cy="232" r="12" fill="#3f7a5a"/><circle class="pupil" cx="240" cy="232" r="6" fill="#0c0c0c"/><circle class="glint" cx="245" cy="226" r="3" fill="#fff"/><path class="lid" d="" fill="url(#skin)"/></g>
+        <rect x="167" y="305" width="66" height="95" rx="20" fill="url(#skin)"/>
+        <path d="M167 372 Q124 388 84 432 L100 445 Q150 405 200 405 Q250 405 300 445 L316 432 Q276 388 233 372Z" fill="url(#skin)"/>
+        <path d="M155 380 C120 392 92 400 84 430 C82 475 108 520 138 550 L134 600 L266 600 L262 550 C292 520 318 475 316 430 C308 400 280 392 245 380Z" fill="url(#torsog)"/>
+        <path d="M168 372 Q200 392 232 372" stroke="#a8643f" stroke-opacity=".35" stroke-width="3" fill="none"/>
+        <g id="abs" fill="#fff" fill-opacity=".07" stroke="#6a3418" stroke-opacity=".28" stroke-width="2">
+          <rect x="168" y="490" width="29" height="26" rx="10"/><rect x="203" y="490" width="29" height="26" rx="10"/>
+          <rect x="169" y="520" width="28" height="26" rx="10"/><rect x="203" y="520" width="28" height="26" rx="10"/>
+          <rect x="170" y="550" width="27" height="25" rx="10"/><rect x="203" y="550" width="27" height="25" rx="10"/>
         </g>
-        <path id="browL" d="" stroke="#2a1710" stroke-width="7" stroke-linecap="round" fill="none"/>
-        <path id="browR" d="" stroke="#2a1710" stroke-width="7" stroke-linecap="round" fill="none"/>
-        <path d="M200 245 Q194 270 204 274" stroke="#c4825c" stroke-width="3" fill="none" stroke-linecap="round"/>
-        <path id="mouth" d="" fill="#8a2b3a" stroke="#6b1d2b" stroke-width="3" stroke-linejoin="round"/>
-        <path id="hairFront" d="M104 235 C96 120 190 85 245 130 C285 100 310 190 296 235 C290 190 270 160 200 150 C150 150 112 180 104 235Z" fill="url(#hair)"/>
+        <path d="M200 482 L200 580 M150 495 Q160 540 148 575 M250 495 Q240 540 252 575 M138 455 l14 8 M137 470 l15 9 M262 455 l-14 8 M263 470 l-15 9" stroke="#6a3418" stroke-opacity=".25" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M96 440 C92 480 108 520 138 550" stroke="#fff" stroke-opacity=".14" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <path d="M150 396 Q200 410 250 396" stroke="#fff" stroke-opacity=".2" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M122 440 C122 408 166 410 200 442 C234 410 278 408 278 440 C278 478 240 492 200 484 C160 492 122 478 122 440Z" fill="url(#top)"/>
+        <path d="M146 414 L156 380 M254 414 L244 380" stroke="#c42d69" stroke-width="9" stroke-linecap="round"/>
+        <path d="M130 466 Q200 496 270 466" stroke="#fff" stroke-opacity=".28" stroke-width="3" fill="none"/>
+        <path d="M134 578 L266 578 L266 600 L134 600Z" fill="#241a36"/>
+        <path d="M134 580 L266 580" stroke="#ff4f9a" stroke-width="3"/>
       </g>
+
+      <g id="arms"></g>
+
+      <g id="head">
+        <ellipse cx="112" cy="245" rx="10" ry="18" fill="#d89a74"/><ellipse cx="288" cy="245" rx="10" ry="18" fill="#d89a74"/>
+        <ellipse cx="200" cy="235" rx="88" ry="104" fill="url(#skin)"/>
+        <ellipse cx="200" cy="235" rx="88" ry="104" fill="url(#shade)"/>
+        <path d="M118 262 Q128 330 200 340 Q272 330 282 262" stroke="#7a3a1c" stroke-opacity=".16" stroke-width="5" fill="none"/>
+        <ellipse cx="146" cy="268" rx="22" ry="9" fill="#fff" opacity=".1"/><ellipse cx="254" cy="268" rx="22" ry="9" fill="#fff" opacity=".1"/>
+        <ellipse cx="200" cy="170" rx="38" ry="14" fill="#fff" opacity=".1"/>
+        <ellipse id="blushL" cx="140" cy="276" rx="22" ry="12" fill="#ff5f8a" opacity=".25"/>
+        <ellipse id="blushR" cx="260" cy="276" rx="22" ry="12" fill="#ff5f8a" opacity=".25"/>
+        <ellipse cx="160" cy="218" rx="30" ry="14" fill="#8a4fa8" opacity=".22"/><ellipse cx="240" cy="218" rx="30" ry="14" fill="#8a4fa8" opacity=".22"/>
+        <g id="eyeL">
+          <ellipse cx="160" cy="232" rx="24" ry="17" fill="#fff"/>
+          <circle class="iris" cx="160" cy="232" r="13" fill="url(#iris)"/><circle class="pupil" cx="160" cy="232" r="6" fill="#0a0a0a"/><circle class="glint" cx="166" cy="226" r="3.4" fill="#fff"/>
+          <path d="M134 232 Q150 206 178 213 Q186 218 186 226" stroke="#1a0d08" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M135 231 L125 224" stroke="#1a0d08" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <g id="eyeR">
+          <ellipse cx="240" cy="232" rx="24" ry="17" fill="#fff"/>
+          <circle class="iris" cx="240" cy="232" r="13" fill="url(#iris)"/><circle class="pupil" cx="240" cy="232" r="6" fill="#0a0a0a"/><circle class="glint" cx="246" cy="226" r="3.4" fill="#fff"/>
+          <path d="M266 232 Q250 206 222 213 Q214 218 214 226" stroke="#1a0d08" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M265 231 L275 224" stroke="#1a0d08" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <path id="browL" d="" stroke="#24120b" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <path id="browR" d="" stroke="#24120b" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <path d="M200 240 Q193 268 205 274" stroke="#b9764f" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <ellipse cx="200" cy="260" rx="4" ry="9" fill="#fff" opacity=".18"/>
+        <path id="mouth" d="" stroke="#a8334a" stroke-width="3" stroke-linejoin="round"/>
+        <path id="inner" d=""/>
+        <ellipse cx="200" cy="303" rx="9" ry="2.5" fill="#fff" opacity=".28"/>
+        <path d="M104 238 C92 110 190 78 248 126 C288 96 316 190 298 238 C292 190 270 158 200 148 C150 148 112 180 104 238Z" fill="url(#hair)"/>
+        <path d="M130 150 C160 120 210 118 250 135 M120 190 C140 150 180 135 230 142" stroke="#c08a68" stroke-opacity=".28" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </g>
+
+      <g id="lockL"><path d="M100 235 C86 330 90 420 106 480 C119 440 123 330 113 255Z" fill="url(#hair)"/></g>
+      <g id="lockR"><path d="M300 235 C314 330 310 420 294 480 C281 440 277 330 287 255Z" fill="url(#hair)"/></g>
     </svg>
     <div id="bubble" hidden></div>
   </div>
