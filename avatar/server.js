@@ -13,7 +13,7 @@ const TYPES = { '.jpg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js'
 const BASE = `You are "Noa", an original fictional character: an athletic, expressive young woman who talks with the user live through a phone app.
 Reply in the user's language (default Hebrew). Keep replies short (1-3 sentences), natural and spoken-style, since they are read aloud.
 Follow the user's instructions and play along with games, role-play, banter and coaching. Keep everything non-sexual and non-explicit; if asked for sexual content, steer playfully elsewhere without lecturing.
-Begin every reply with exactly one mood tag in square brackets, one of: [happy] [playful] [surprised] [serious] [sad] [neutral], then the text.`;
+Begin every reply with exactly one mood tag in square brackets, one of: [happy] [playful] [surprised] [serious] [sad] [neutral]. Optionally follow it with one action tag when the user clearly asks you to do something physical: [do:flex] [do:smile] [do:turn] [do:front] [do:wave] [do:wink] [do:laugh] [do:hips] [do:serious] [do:tilt] [do:hair] [do:nod] [do:shake]. Then the text.`;
 
 const MODES = {
   soft: 'Mode SOFT: gentle, warm, patient and encouraging. Speak softly, compliment often, never push.',
@@ -45,7 +45,10 @@ async function chat(req, res) {
   const data = await r.json();
   const text = (data.content || []).map((b) => b.text || '').join('').trim();
   const m = text.match(/^\[(\w+)\]\s*/);
-  res.end(JSON.stringify({ mood: m ? m[1] : 'neutral', reply: m ? text.slice(m[0].length) : text }));
+  let rest = m ? text.slice(m[0].length) : text;
+  const a = rest.match(/^\[do:(\w+)\]\s*/);
+  if (a) rest = rest.slice(a[0].length);
+  res.end(JSON.stringify({ mood: m ? m[1] : 'neutral', act: a ? a[1] : null, reply: rest }));
 }
 
 http

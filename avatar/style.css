@@ -16,3 +16,6 @@ main { max-width: 480px; height: 100dvh; margin: auto; display: flex; flex-direc
 #form button { border: 0; border-radius: 12px; padding: 0 14px; background: #c2335a; color: #fff; font-size: 16px; }
 #mic.rec { background: #e33; }
 .voice { font-size: 13px; color: #aaa; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips button { flex: none; padding: 8px 14px; border: 0; border-radius: 999px; background: #261d3a; color: #ddd; font-size: 14px; }
+.chips button:active { background: #c2335a; color: #fff; }
