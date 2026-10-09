@@ -1,16 +1,11 @@
-# Noa – live 3D avatar
+# Noa – photoreal live avatar
 
-A real-time 3D character (skinned GLB, ARKit blend shapes + visemes) that you can talk to, touch and give commands.
+Photographs of one (AI-generated, original) person, animated live in the browser.
 
-```
-cd avatar
-ANTHROPIC_API_KEY=sk-ant-... node server.js    # http://localhost:5190
-```
+- **Photos**: waist-up studio shots made with FLUX.2 [klein] (Cloudflare Workers AI) – 7 outfits × 7 poses (standing, flex, one-arm flex ×2, hands on hips, wave, back view).
+- **Face**: animated offline with [LivePortrait](https://github.com/KwaiVGI/LivePortrait) (ONNX, CPU): blinks, 8 mouth shapes (visemes), 9 expressions, head turns. The frames are packed as WebP atlases (`tools/pack_frames.py`) and stored as *differences* from the neutral frame, so the photo keeps its full resolution.
+- **Runtime** (`app.js`, plain WebGL): picks and cross-fades frames for speech, blinking, expression and gaze; warps the picture for breathing, sway, hair, and the skin that follows your finger. Touch reacts to the part you touch; commands (type/speak): "תעשי שרירים", "תחייכי", "תסתובבי", "תלבשי בגד ים"…
+- **Chat**: `ANTHROPIC_API_KEY=… node server.js` → http://localhost:5190 (without a key: canned replies). Non-explicit by design.
 
-- **Touch**: forehead, eyes, nose, cheeks, mouth, chin, hair, neck, shoulders, arms, torso all react differently. Drag the body to spin her.
-- **Commands** (type or speak, Hebrew/English): "תעשי שרירים", "תחייכי", "תסתובבי", "תנופפי", "ידיים על המותניים", "תקרצי", …
-- **Voice**: lip-sync is generated from the text (Hebrew + English letters to visemes) while the browser reads it aloud.
-- **Your own avatar**: tap "טען אווטאר משלך" and pick any GLB with a Mixamo-style skeleton and ARKit + Oculus viseme blend shapes
-  (Ready Player Me with `morphTargets=ARKit,Oculus Visemes`, or Avaturn). Create one from a photo and she will look like the photo.
-- `models/noa.glb` is built from the CC0 MPFB avatar with `tools/make_avatar.py` (slimmed, recoloured).
-- No API key: canned replies. The character is non-explicit by design.
+Rebuild the assets: `tools/pack_frames.py` / `tools/build_live.py` (needs the LivePortrait frames; see git history for the generator).
+`legacy-3d/` holds the earlier real-time 3D version.
