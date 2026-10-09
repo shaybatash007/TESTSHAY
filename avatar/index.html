@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Noa – אווטאר חי</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <div class="modes" role="tablist">
+    <button data-mode="soft">רכה</button>
+    <button data-mode="normal" class="on">רגילה</button>
+    <button data-mode="firm">קשוחה</button>
+  </div>
+
+  <div id="stage">
+    <svg id="avatar" viewBox="0 0 400 520" aria-label="Noa">
+      <defs>
+        <radialGradient id="bg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#3b2a5a"/><stop offset="1" stop-color="#14101f"/></radialGradient>
+        <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9b48f"/><stop offset="1" stop-color="#d89a74"/></linearGradient>
+        <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a2a1c"/><stop offset="1" stop-color="#1f100a"/></linearGradient>
+      </defs>
+      <rect width="400" height="520" fill="url(#bg)"/>
+      <g id="body">
+        <path d="M60 520 C60 430 110 400 200 400 C290 400 340 430 340 520Z" fill="#c2335a"/>
+        <path d="M60 520 C60 430 110 400 200 400" fill="none" stroke="#8f2142" stroke-width="3"/>
+        <rect x="170" y="330" width="60" height="80" rx="24" fill="url(#skin)"/>
+        <path d="M150 405 Q200 440 250 405 L250 420 Q200 455 150 420Z" fill="#e9b48f"/>
+      </g>
+      <g id="head">
+        <path id="hairBack" d="M92 230 C80 90 320 90 308 230 C312 320 290 380 260 400 L140 400 C110 380 88 320 92 230Z" fill="url(#hair)"/>
+        <ellipse cx="200" cy="235" rx="88" ry="104" fill="url(#skin)"/>
+        <ellipse cx="112" cy="245" rx="10" ry="18" fill="#d89a74"/><ellipse cx="288" cy="245" rx="10" ry="18" fill="#d89a74"/>
+        <ellipse id="blushL" cx="140" cy="272" rx="20" ry="11" fill="#ff6f91" opacity=".25"/>
+        <ellipse id="blushR" cx="260" cy="272" rx="20" ry="11" fill="#ff6f91" opacity=".25"/>
+        <g id="eyes">
+          <g id="eyeL"><ellipse cx="160" cy="232" rx="23" ry="17" fill="#fff"/><circle class="iris" cx="160" cy="232" r="12" fill="#3f7a5a"/><circle class="pupil" cx="160" cy="232" r="6" fill="#0c0c0c"/><circle class="glint" cx="165" cy="226" r="3" fill="#fff"/><path class="lid" d="" fill="url(#skin)"/></g>
+          <g id="eyeR"><ellipse cx="240" cy="232" rx="23" ry="17" fill="#fff"/><circle class="iris" cx="240" cy="232" r="12" fill="#3f7a5a"/><circle class="pupil" cx="240" cy="232" r="6" fill="#0c0c0c"/><circle class="glint" cx="245" cy="226" r="3" fill="#fff"/><path class="lid" d="" fill="url(#skin)"/></g>
+        </g>
+        <path id="browL" d="" stroke="#2a1710" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <path id="browR" d="" stroke="#2a1710" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <path d="M200 245 Q194 270 204 274" stroke="#c4825c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path id="mouth" d="" fill="#8a2b3a" stroke="#6b1d2b" stroke-width="3" stroke-linejoin="round"/>
+        <path id="hairFront" d="M104 235 C96 120 190 85 245 130 C285 100 310 190 296 235 C290 190 270 160 200 150 C150 150 112 180 104 235Z" fill="url(#hair)"/>
+      </g>
+    </svg>
+    <div id="bubble" hidden></div>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <form id="form">
+    <button type="button" id="mic" title="דבר">🎤</button>
+    <input id="text" placeholder="כתוב לה משהו…" autocomplete="off">
+    <button type="submit">שלח</button>
+  </form>
+  <label class="voice"><input type="checkbox" id="voice" checked> קול</label>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

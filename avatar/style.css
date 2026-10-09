@@ -1,0 +1,18 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #0d0a16; color: #eee; font-family: system-ui, sans-serif; overscroll-behavior: none; }
+main { max-width: 480px; height: 100dvh; margin: auto; display: flex; flex-direction: column; padding: 8px; gap: 6px; }
+.modes { display: flex; gap: 6px; }
+.modes button { flex: 1; padding: 10px; border: 0; border-radius: 12px; background: #261d3a; color: #ccc; font-size: 16px; }
+.modes button.on { background: #c2335a; color: #fff; }
+#stage { position: relative; flex: 1 1 55%; min-height: 0; border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; }
+#avatar { width: 100%; height: 100%; display: block; }
+#bubble { position: absolute; top: 10px; inset-inline: 10px; background: #000a; padding: 8px 12px; border-radius: 12px; font-size: 15px; backdrop-filter: blur(6px); }
+#log { flex: 0 1 22%; overflow-y: auto; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+#log p { margin: 0; padding: 6px 10px; border-radius: 10px; max-width: 85%; }
+#log .me { background: #31264a; align-self: flex-start; }
+#log .her { background: #5a2140; align-self: flex-end; }
+#form { display: flex; gap: 6px; }
+#form input { flex: 1; padding: 12px; border-radius: 12px; border: 0; background: #1d1630; color: #fff; font-size: 16px; }
+#form button { border: 0; border-radius: 12px; padding: 0 14px; background: #c2335a; color: #fff; font-size: 16px; }
+#mic.rec { background: #e33; }
+.voice { font-size: 13px; color: #aaa; }
