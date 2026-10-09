@@ -121,7 +121,7 @@ float absH(vec2 p){
   return -(line + rows + obl * 0.8); }
 float absMask(vec3 r){ return smoothstep(1.02, 1.06, r.y) * (1.0 - smoothstep(1.27, 1.31, r.y)) * (1.0 - smoothstep(0.1, 0.13, abs(r.x))) * step(0.03, r.z); }`;
 function makeSkin(src, a, color) {
-  const m = new THREE.MeshPhysicalMaterial({ color: color || 0xffffff, map: src.map, normalMap: src.normalMap, roughness: 0.55, metalness: 0, sheen: 0.5, sheenColor: new THREE.Color(0xff9a80), sheenRoughness: 0.5, clearcoat: 0.12, clearcoatRoughness: 0.4, name: src.name });
+  const m = new THREE.MeshPhysicalMaterial({ color: color || 0xffffff, ...(src.map ? { map: src.map } : {}), ...(src.normalMap ? { normalMap: src.normalMap } : {}), roughness: 0.55, metalness: 0, sheen: 0.5, sheenColor: new THREE.Color(0xff9a80), sheenRoughness: 0.5, clearcoat: 0.12, clearcoatRoughness: 0.4, name: src.name });
   const u = { uMuscle: { value: 0.6 } }; m.userData.u = u;
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uMuscle = u.uMuscle;
@@ -159,6 +159,7 @@ async function loadAvatar(buffer) {
     }
   });
   const sk = a.meshes.find((m) => m.isSkinnedMesh); if (sk) { a.skeleton = sk.skeleton; a.bindMatrix = sk.bindMatrix; }
+  a.hasVisemes = a.faces.some((m) => m.morphTargetDictionary.viseme_aa !== undefined);
   a.photoFace = !!gltf.asset?.extras?.noaFace; a.skinColor = gltf.asset?.extras?.skinColor;
   for (const [n, b] of Object.entries(a.bones)) a.rest[n] = b.quaternion.clone();
   gltf.scene.updateMatrixWorld(true);
@@ -270,7 +271,7 @@ float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }`;
 function clothMaterial(src) {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, normalMap: src.normalMap, roughness: 0.7, metalness: 0, side: THREE.DoubleSide, sheen: 0, sheenColor: new THREE.Color(0xffffff), sheenRoughness: 0.5 });
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, ...(src.normalMap ? { normalMap: src.normalMap } : {}), roughness: 0.7, metalness: 0, side: THREE.DoubleSide, sheen: 0, sheenColor: new THREE.Color(0xffffff), sheenRoughness: 0.5 });
   if (m.normalMap) m.normalScale.set(1.2, 1.2);
   const u = { uClip: { value: new THREE.Vector4(0, 9, 9, 0) }, uArm: { value: new THREE.Vector4(-1, 0.16, 1.40, 1.27) }, uPat: { value: new THREE.Vector4(0, 20, 0, 0) },
     uScoop: { value: new THREE.Vector4(9, 0, 0, 0) }, uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() }, uTrim: { value: new THREE.Color() } };
@@ -382,6 +383,11 @@ function visemeSeq(text) {
   }
   return out.length ? out : [{ v: 'sil', w: 0 }];
 }
+const ARKIT_VISEME = {
+  aa: { jawOpen: 0.55, mouthLowerDownLeft: 0.3, mouthLowerDownRight: 0.3 }, E: { jawOpen: 0.28, mouthStretchLeft: 0.4, mouthStretchRight: 0.4 }, I: { jawOpen: 0.15, mouthStretchLeft: 0.5, mouthStretchRight: 0.5, mouthSmileLeft: 0.2, mouthSmileRight: 0.2 },
+  O: { jawOpen: 0.32, mouthFunnel: 0.75 }, U: { jawOpen: 0.1, mouthPucker: 0.8 }, PP: { mouthClose: 0.7, mouthPressLeft: 0.4, mouthPressRight: 0.4 }, FF: { jawOpen: 0.08, mouthRollLower: 0.5, mouthUpperUpLeft: 0.3, mouthUpperUpRight: 0.3 },
+  TH: { jawOpen: 0.15, mouthLowerDownLeft: 0.2, mouthLowerDownRight: 0.2 }, DD: { jawOpen: 0.18 }, kk: { jawOpen: 0.2 }, CH: { jawOpen: 0.12, mouthFunnel: 0.35 }, SS: { jawOpen: 0.08, mouthStretchLeft: 0.3, mouthStretchRight: 0.3 }, nn: { jawOpen: 0.12 }, RR: { jawOpen: 0.15, mouthFunnel: 0.25 },
+};
 const talk = { seq: [], t0: 0, dur: 1, active: false, nextNod: 0 };
 function startTalk(text, durSec) {
   talk.seq = visemeSeq(text); talk.t0 = now(); talk.dur = Math.max(0.8, durSec); talk.active = true; talk.nextNod = now();
@@ -659,7 +665,11 @@ function frame() {
     if (k >= 1) stopTalk();
     else {
       const cur = talk.seq[clamp(i, 0, talk.seq.length - 1)];
-      if (cur && cur.v !== 'sil') { const flutter = 0.82 + 0.18 * Math.sin(t * 31); morph('viseme_' + cur.v, cur.w * flutter); morph('jawOpen', cur.v === 'aa' ? 0.12 : 0.05); }
+      if (cur && cur.v !== 'sil') {
+        const flutter = 0.82 + 0.18 * Math.sin(t * 31), w = cur.w * flutter;
+        if (A.hasVisemes) { morph('viseme_' + cur.v, w); morph('jawOpen', cur.v === 'aa' ? 0.12 : 0.05); }
+        else { const f = ARKIT_VISEME[cur.v] || ARKIT_VISEME.DD; for (const k in f) morph(k, f[k] * w); }     // avatars without viseme shapes: build them from ARKit mouth shapes
+      }
       else morph('viseme_sil', 0.2);
       if (cur && cur.v === 'sil' && t > talk.nextNod) { talk.nextNod = t + 0.35 + Math.random() * 0.5; nodKick = 1; }
     }
