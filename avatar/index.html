@@ -15,7 +15,7 @@
   </div>
 
   <div id="stage">
-    <canvas id="avatar" width="900" height="900" aria-label="Noa"></canvas>
+    <canvas id="avatar" aria-label="Noa"></canvas><div id="loading">טוענת…</div>
     <div id="bubble" hidden></div>
   </div>
 
@@ -30,8 +30,14 @@
     <input id="text" placeholder="כתוב לה משהו…" autocomplete="off">
     <button type="submit">שלח</button>
   </form>
-  <label class="voice"><input type="checkbox" id="voice" checked> קול</label>
+  <div class="foot">
+    <label class="voice"><input type="checkbox" id="voice" checked> קול</label>
+    <button type="button" id="loadAvatar" class="link">טען אווטאר משלך (GLB)</button>
+    <button type="button" id="resetAvatar" class="link">איפוס</button>
+    <input type="file" id="glb" accept=".glb,model/gltf-binary" hidden>
+  </div>
 </main>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/"}}</script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,188 +1,190 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
 const $ = (s) => document.querySelector(s);
-const canvas = $('#avatar'), stage = $('#stage');
+const canvas = $('#avatar'), stage = $('#stage'), bubble = $('#bubble'), log = $('#log');
+const now = () => performance.now() / 1000;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // =====================================================================
-//  Photoreal avatar: a set of photos of one character (poses), warped
-//  live on the GPU.
-//  Vertex   -> head tilt / yaw / pitch, breathing, hair sway, shrug,
-//              turn-around squash, skin that follows your finger.
-//  Fragment -> blink / wink, gaze, brow lift, smile, talking mouth, blush.
+//  Real-time 3D avatar: skinned GLB with ARKit blend shapes + visemes.
+//  Everything is procedural: breathing, weight shift, saccades, blinks,
+//  head/eye attention, lip-sync from text, poses by aiming arm bones,
+//  turn-around, and touch that reacts to the body part you touch.
 // =====================================================================
-const VS = `
-attribute vec2 aPos; varying vec2 vUv;
-uniform float tilt, breath, sway, squash, shrug, yaw, pitch, tpress, neck, ipd;
-uniform vec2 headShift, bodyShift, fc, tpos, tvec;
-void main(){
-  vec2 p = aPos; vUv = p; vec2 q = p;
-  float low = smoothstep(0.5, 0.7, p.y);
-  q = mix(q, vec2(0.5, 1.0) + (q - vec2(0.5, 1.0)) * (1.0 + breath * 0.008), low);
-  float hw = (1.0 - smoothstep(fc.x - 1.6 * ipd, fc.x - 0.9 * ipd, p.x))
-           + smoothstep(fc.x + 0.9 * ipd, fc.x + 1.6 * ipd, p.x) * (1.0 - smoothstep(fc.x + 3.0 * ipd, fc.x + 4.2 * ipd, p.x));
-  q.x += sway * 0.012 * hw * clamp(p.y - (fc.y - 0.2), 0.0, 1.0);
-  vec2 dd = p - tpos; float tw = exp(-dot(dd, dd) / 0.0035);
-  q += tvec * tw - dd * tw * tpress * 0.22;
-  vec2 d2 = p - fc; float prof = exp(-dot(d2, d2) / (2.0 * pow(1.7 * ipd, 2.0)));
-  q.x += yaw * 0.03 * prof; q.y += pitch * 0.025 * prof;
-  q.x = fc.x + (q.x - fc.x) * (1.0 - abs(yaw) * 0.03 * prof);
-  float hW = 1.0 - smoothstep(neck - 0.05, neck + 0.11, p.y);
-  vec2 piv = vec2(fc.x, neck + 0.05), r = q - piv;
-  float c = cos(tilt * hW), s = sin(tilt * hW);
-  q = piv + vec2(c * r.x - s * r.y, s * r.x + c * r.y) + headShift * hW + bodyShift;
-  float sh = smoothstep(neck - 0.02, neck + 0.08, p.y) * (1.0 - smoothstep(neck + 0.22, neck + 0.36, p.y));
-  q.y -= shrug * (0.02 * sh + 0.012 * hW);
-  q.x = 0.5 + (q.x - 0.5) * squash;
-  q = vec2(0.5) + (q - vec2(0.5)) * 1.05;
-  gl_Position = vec4(q.x * 2.0 - 1.0, 1.0 - q.y * 2.0, 0.0, 1.0);
-}`;
-const FS = `
-precision mediump float;
-varying vec2 vUv; uniform sampler2D tex;
-uniform vec2 gaze, EL, ER, MC; uniform float blinkL, blinkR, mouthOpen, smile, brow, blush, fipd, faceOn, alpha;
-float ell(vec2 p, vec2 c, vec2 r){ return 1.0 - smoothstep(0.7, 1.0, length((p - c) / r)); }
-vec3 lids(vec3 col, vec2 uv, vec2 E, float b, float fs){
-  float m = ell(uv, E, vec2(.034, .020) * fs);
-  float edge = E.y - 0.018 * fs + b * 0.036 * fs;
-  float cover = 1.0 - smoothstep(edge - 0.0015 * fs, edge + 0.0015 * fs, uv.y);
-  float line = 1.0 - smoothstep(0.0, 0.0022 * fs, abs(uv.y - edge));
-  col = mix(col, texture2D(tex, uv + vec2(0.0, -0.017 * fs)).rgb, m * cover);
-  return mix(col, vec3(.10, .05, .04), m * line * step(0.02, b));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
+const key = new THREE.DirectionalLight(0xfff0e0, 1.6); key.position.set(1.6, 2.6, 2.4); scene.add(key);
+const rim = new THREE.DirectionalLight(0x9fc4ff, 1.1); rim.position.set(-2, 2, -2.2); scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb59a88, 0.7));
+const fill = new THREE.DirectionalLight(0xffe6d6, 0.7); fill.position.set(-1.2, 1.2, 2.6); scene.add(fill);
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
 }
-void main(){
-  vec2 uv = vUv, s = uv; vec3 col; bool gap = false; float dx = 0.0, d = 0.0, t = 0.0;
-  float fs = fipd / 0.1042;
-  if (faceOn > 0.5) {
-    float bm = max(ell(uv, EL + vec2(-.004, -.027) * fs, vec2(.05, .022) * fs), ell(uv, ER + vec2(.004, -.027) * fs, vec2(.05, .022) * fs));
-    s.y += brow * 0.010 * fs * bm;
-    dx = (uv.x - MC.x) / (0.058 * fs);
-    s.y += smile * 0.007 * fs * dx * dx * ell(uv, MC, vec2(.075, .05) * fs);
-    d = mouthOpen * 0.020 * fs * (1.0 - smoothstep(0.03 * fs, 0.06 * fs, uv.y - MC.y)) * (1.0 - smoothstep(0.5, 1.0, abs(dx)));
-    if (uv.y > MC.y) { if (uv.y < MC.y + d) gap = true; else s.y -= d; }
-    s -= gaze * vec2(.0045, .0030) * fs * (1.0 - smoothstep(.011 * fs, .017 * fs, length((uv - EL) * vec2(1.0, 1.5))));
-    s -= gaze * vec2(.0045, .0030) * fs * (1.0 - smoothstep(.011 * fs, .017 * fs, length((uv - ER) * vec2(1.0, 1.5))));
-  }
-  col = texture2D(tex, s).rgb;
-  if (faceOn > 0.5) {
-    if (gap) {
-      t = (uv.y - MC.y) / max(d, 0.0001);
-      vec3 inside = mix(vec3(.93, .90, .88), vec3(.30, .08, .10), smoothstep(0.55, 1.0, t));
-      col = mix(col, inside, 1.0 - smoothstep(0.55, 0.95, abs(dx)));
-    }
-    float ch = max(ell(uv, EL + vec2(-.02, .05) * fs, vec2(.05, .034) * fs), ell(uv, ER + vec2(.02, .05) * fs, vec2(.05, .034) * fs));
-    col = mix(col, col * vec3(1.06, .92, .94) + vec3(.03, .0, .005), blush * ch * 0.7);
-    col = lids(col, uv, EL, blinkL, fs);
-    col = lids(col, uv, ER, blinkR, fs);
-  }
-  gl_FragColor = vec4(col, alpha);
-}`;
+new ResizeObserver(resize).observe(stage); resize();
 
-const gl = canvas.getContext('webgl', { antialias: true });
-const U = {};
-function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
-const prog = gl.createProgram();
-gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-gl.linkProgram(prog); gl.useProgram(prog);
-['tilt', 'breath', 'sway', 'squash', 'shrug', 'yaw', 'pitch', 'tpress', 'neck', 'ipd', 'headShift', 'bodyShift', 'fc', 'tpos', 'tvec',
-  'fipd', 'gaze', 'EL', 'ER', 'MC', 'blinkL', 'blinkR', 'mouthOpen', 'smile', 'brow', 'blush', 'faceOn', 'alpha']
-  .forEach((n) => (U[n] = gl.getUniformLocation(prog, n)));
-const N = 48, verts = [], idx = [];
-for (let y = 0; y <= N; y++) for (let x = 0; x <= N; x++) verts.push(x / N, y / N);
-for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const a = y * (N + 1) + x, b = a + 1, c = a + N + 1, d = c + 1; idx.push(a, b, c, b, d, c); }
-const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-const loc = gl.getAttribLocation(prog, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+// ---------- springs ----------
+class Spr {
+  constructor(k = 60, d = 11, x = 0) { this.x = x; this.v = 0; this.t = x; this.k = k; this.d = d; }
+  step(dt) { const a = (this.t - this.x) * this.k - this.v * this.d; this.v += a * dt; this.x += this.v * dt; return this.x; }
+  kick(v) { this.v += v; }
+}
+class SprV {
+  constructor(v, k = 50, d = 10) { this.x = v.clone(); this.v = V(0, 0, 0); this.t = v.clone(); this.k = k; this.d = d; }
+  step(dt) { const a = this.t.clone().sub(this.x).multiplyScalar(this.k).addScaledVector(this.v, -this.d); this.v.addScaledVector(a, dt); this.x.addScaledVector(this.v, dt); return this.x; }
+}
 
-// ---------- poses: image + face landmarks measured with a face-landmark model ----------
-const POSES = {
-  base:    { f: 'noa.jpg',          EL: [.4786, .2767], ER: [.5828, .2788], MC: [.5251, .3891] },
-  flex:    { f: 'poses/flex.jpg',   EL: [.4711, .2564], ER: [.5588, .2558], MC: [.5125, .3501], arms: 1 },
-  flexL:   { f: 'poses/flexL.jpg',  EL: [.4847, .2142], ER: [.5615, .2108], MC: [.5248, .2940] },
-  flexR:   { f: 'poses/flexR.jpg',  EL: [.4786, .2172], ER: [.5506, .2203], MC: [.5088, .2971] },
-  hips:    { f: 'poses/hips.jpg',   EL: [.4754, .1897], ER: [.5437, .1899], MC: [.5083, .2649] },
-  laugh:   { f: 'poses/laugh.jpg',  EL: [.4761, .2182], ER: [.5613, .2208], MC: [.5141, .3119] },
-  serious: { f: 'poses/serious.jpg', EL: [.4625, .2122], ER: [.5439, .2094], MC: [.5041, .3014] },
-  wave:    { f: 'poses/wave.jpg',   EL: [.4872, .2025], ER: [.5559, .2047], MC: [.5163, .2807] },
-  back:    { f: 'poses/back.jpg',   back: 1, fc: [.47, .22], ipd: .10, neck: .42 },
+// ---------- avatar state ----------
+let A = null;                 // loaded avatar (bones, meshes...)
+const S = {
+  mood: 'neutral', moodUntil: 0, mode: 'normal', speaking: false,
+  ptr: { x: 0, y: 0, last: -99 }, glanceUntil: 0, glance: { x: 0, y: 0 }, nextGlance: 1,
+  nextBlink: 2, blink: 0, blinkDir: 0, forceBlink: 0, wink: 0,
+  pose: 'idle', poseSides: 'LR', poseUntil: 0, smileBoost: 0, laughUntil: 0, shakeUntil: 0, nodUntil: 0,
+  turnTarget: 0, backUntil: 0, shrugT: 0, blush: 0, blushT: 0,
 };
-for (const [name, c] of Object.entries(POSES)) {
-  if (!c.back) {
-    c.ipd = c.ER[0] - c.EL[0]; c.mx = (c.EL[0] + c.ER[0]) / 2; c.ey = (c.EL[1] + c.ER[1]) / 2;
-    c.fc = [c.mx, c.ey + 0.5 * c.ipd]; c.neck = c.ey + 2.62 * c.ipd;
-  } else { c.mx = c.fc[0]; c.ey = c.fc[1]; }
-  c.face = c.back ? 0 : 1;
-  c.tex = gl.createTexture(); c.ready = false;
-  const img = new Image();
-  img.onload = () => {
-    gl.bindTexture(gl.TEXTURE_2D, c.tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-    c.ready = true;
-  };
-  img.src = c.f;
+const sp = {
+  hy: new Spr(45, 9), hp: new Spr(45, 9), hr: new Spr(45, 9),          // head yaw / pitch / roll offsets (reactions)
+  ay: new Spr(30, 8), ap: new Spr(30, 8),                                // attention follow
+  root: new Spr(26, 7), shrug: new Spr(70, 9), camD: new Spr(22, 8, 1.6), camY: new Spr(22, 8, 1.4),
+};
+const morphT = {}, morphC = {};   // target / current morph weights
+
+// ---------- poses: directions of upper arm / forearm, in avatar space (left arm = +x side, right mirrors x) ----------
+function mirror(v) { return V(-v.x, v.y, v.z); }
+const POSE = {
+  idle:   { U: V(0.20, -0.97, -0.02), F: V(0.10, -0.86, 0.50), fist: 0.15, cam: [1.6, 1.4] },
+  flex:   { U: V(1.00, 0.10, 0.12), F: V(0.22, 1.00, 0.10), fist: 1, cam: [2.7, 1.3] },
+  wave:   { U: V(0.85, 0.40, 0.12), F: V(0.20, 1.00, 0.12), fist: 0, cam: [2.2, 1.34] },
+  hips:   { U: V(0.66, -0.72, -0.08), F: V(-0.55, -0.78, 0.30), fist: 0.6, cam: [2.2, 1.3] },
+  serious: { U: V(0.14, -0.99, 0.0), F: V(0.05, -0.92, 0.38), fist: 0.5, cam: [1.55, 1.42] },
+};
+const bulge = { L: new Spr(40, 9), R: new Spr(40, 9) };
+const arm = { L: { U: new SprV(POSE.idle.U, 55, 11), F: new SprV(POSE.idle.F, 55, 11), fist: new Spr(40, 9) },
+              R: { U: new SprV(mirror(POSE.idle.U), 55, 11), F: new SprV(mirror(POSE.idle.F), 55, 11), fist: new Spr(40, 9) } };
+function setPose(name, ms = 0, sides = 'LR') {
+  S.pose = name; S.poseSides = sides; S.poseUntil = ms ? now() + ms : 0;
+  for (const s of ['L', 'R']) {
+    const p = sides.includes(s) ? POSE[name] : POSE.idle;
+    arm[s].U.t.copy(s === 'L' ? p.U : mirror(p.U)); arm[s].F.t.copy(s === 'L' ? p.F : mirror(p.F));
+    arm[s].fist.t = p.fist;
+  }
+  const c = POSE[name].cam; sp.camD.t = c[0]; sp.camY.t = c[1];
 }
 
-// ---------- state ----------
-const state = { mood: 'neutral', moodUntil: 0, speaking: false, mode: 'normal',
-  gaze: { x: 0, y: 0, tx: 0, ty: 0 }, tilt: 0, ttilt: 0, bounce: 0, blink: 0, nextBlink: 1500,
-  wink: 0, lastPointer: 0, lastTap: 0, lookUntil: 0, shakeUntil: 0, nodUntil: 0, smileBoost: 0, forceBlink: 0 };
-const spring = (k = 0.14, d = 0.78) => ({ x: 0, v: 0, t: 0, k, d, step() { this.v = (this.v + (this.t - this.x) * this.k) * this.d; this.x += this.v; return this.x; } });
-const sSmile = spring(0.1, 0.8), sBrow = spring(0.12, 0.8), sOpen = spring(0.35, 0.6), sBlush = spring(0.05, 0.9), sShrug = spring(0.15, 0.7);
-const sYaw = spring(0.08, 0.8), sPitch = spring(0.08, 0.8), sTX = spring(0.2, 0.62), sTY = spring(0.2, 0.62), sPress = spring(0.25, 0.7);
-const hair = { sway: 0, v: 0, prevTilt: 0, prevBounce: 0 };
+// ---------- face presets (ARKit names) ----------
+const MOOD = {
+  neutral:   { mouthSmile: 0.06, browInnerUp: 0.04 },
+  happy:     { mouthSmileLeft: 0.45, mouthSmileRight: 0.45, cheekSquintLeft: 0.25, cheekSquintRight: 0.25, eyeSquintLeft: 0.15, eyeSquintRight: 0.15, browInnerUp: 0.1 },
+  playful:   { mouthSmileLeft: 0.75, mouthSmileRight: 0.4, browOuterUpRight: 0.55, eyeSquintLeft: 0.25, cheekSquintLeft: 0.3, mouthDimpleLeft: 0.4 },
+  surprised: { browInnerUp: 0.8, browOuterUpLeft: 0.8, browOuterUpRight: 0.8, eyeWideLeft: 0.7, eyeWideRight: 0.7, jawOpen: 0.3 },
+  serious:   { browDownLeft: 0.55, browDownRight: 0.55, mouthPressLeft: 0.4, mouthPressRight: 0.4, eyeSquintLeft: 0.12, eyeSquintRight: 0.12 },
+  sad:       { browInnerUp: 0.7, mouthFrownLeft: 0.6, mouthFrownRight: 0.6, eyeSquintLeft: 0.12, eyeSquintRight: 0.12, mouthShrugLower: 0.2 },
+};
+const setMood = (m, sec = 2.5) => { S.mood = m; S.moodUntil = now() + sec; };
 const IDLE_MOOD = { soft: 'happy', normal: 'neutral', firm: 'serious' };
-const FACE = { neutral: [0.2, 0], happy: [1, 0.3], playful: [0.9, 0.7], surprised: [0, 1.4], serious: [-0.6, -0.8], sad: [-1, 0.5] };
-const setMood = (m, ms = 2500) => { state.mood = m; state.moodUntil = performance.now() + ms; };
-const now = () => performance.now();
 
-// ---------- view: which pose is on screen, fades and the turn-around ----------
-const view = { cur: 'base', prev: null, fade: 1, until: 0, turn: null, squash: 1 };
-function show(name, ms = 0) {
-  if (name !== view.cur) { view.prev = view.cur; view.cur = name; view.fade = 0; }
-  view.until = ms ? now() + ms : 0;
+// ---------- loading ----------
+const loader = new GLTFLoader();
+const strip = (n) => n.replace(/^mixamorig[:_]?/i, '');
+async function loadAvatar(buffer) {
+  const gltf = await loader.parseAsync(buffer, '');
+  if (A) { scene.remove(A.root); A.root.traverse((o) => { o.geometry?.dispose?.(); }); }
+  const root = new THREE.Group(); root.add(gltf.scene); scene.add(root);
+  const a = { root, model: gltf.scene, bones: {}, rest: {}, faces: [], meshes: [], skin: [] };
+  gltf.scene.traverse((o) => {
+    if (o.isBone) { a.bones[strip(o.name)] = o; }
+    if (o.isSkinnedMesh || o.isMesh) {
+      o.frustumCulled = false;
+      if (/glasses/i.test(o.name)) o.visible = false;
+      else a.meshes.push(o);
+      if (o.morphTargetDictionary) a.faces.push(o);
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) { m.envMapIntensity = 1.0; if (/skin/i.test(m.name)) { a.skin.push(m); m.roughness = 0.62; } }
+    }
+  });
+  for (const [n, b] of Object.entries(a.bones)) a.rest[n] = b.quaternion.clone();
+  gltf.scene.updateMatrixWorld(true);
+  const wp = (n) => a.bones[n].getWorldPosition(new THREE.Vector3());
+  a.ipd = wp('LeftEye').distanceTo(wp('RightEye')) || 0.068;
+  a.shoulderDir = {};
+  for (const s of ['Left', 'Right']) a.shoulderDir[s] = wp(`${s}Arm`).sub(wp(`${s}Shoulder`)).normalize();
+  A = a;
+  for (const k of Object.keys(morphT)) delete morphT[k];
+  setPose('idle');
+  return a;
 }
-function startTurn(to) {
-  if (view.turn || view.cur === to) return;
-  view.turn = { t0: now(), to, swapped: false };
-}
+const b64ToBuf = (b64) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
 
-// ---------- actions (what the commands and touches trigger) ----------
+// ---------- speech: text -> visemes ----------
+const HE = { 'א': 'aa', 'ע': 'aa', 'ה': 'aa', 'י': 'I', 'ו': 'O', 'ב': 'PP', 'מ': 'PP', 'ם': 'PP', 'פ': 'PP', 'ף': 'FF', 'ש': 'SS', 'ס': 'SS', 'ז': 'SS', 'צ': 'SS', 'ץ': 'SS',
+  'ד': 'DD', 'ת': 'DD', 'ט': 'DD', 'ל': 'DD', 'נ': 'nn', 'ן': 'nn', 'כ': 'kk', 'ך': 'kk', 'ק': 'kk', 'ג': 'kk', 'ח': 'kk', 'ר': 'RR' };
+const EN = { a: 'aa', e: 'E', i: 'I', o: 'O', u: 'U', m: 'PP', b: 'PP', p: 'PP', f: 'FF', v: 'FF', s: 'SS', z: 'SS', d: 'DD', t: 'DD', l: 'DD', n: 'nn', k: 'kk', g: 'kk', c: 'kk', q: 'kk', r: 'RR', j: 'CH', h: 'aa', w: 'U', y: 'I', x: 'SS' };
+const VOWELS = ['aa', 'E', 'O', 'aa', 'I'];
+function visemeSeq(text) {
+  const out = []; let vi = 0;
+  for (const ch of text.toLowerCase()) {
+    if (HE[ch]) { const v = HE[ch]; out.push({ v, w: 0.75 }); if (!['aa', 'I', 'O'].includes(v)) out.push({ v: VOWELS[vi++ % VOWELS.length], w: 0.6 }); }
+    else if (EN[ch]) out.push({ v: EN[ch], w: 0.7 });
+    else if (/[\s,.!?;:]/.test(ch)) out.push({ v: 'sil', w: 0.0 });
+  }
+  return out.length ? out : [{ v: 'sil', w: 0 }];
+}
+const talk = { seq: [], t0: 0, dur: 1, active: false, nextNod: 0 };
+function startTalk(text, durSec) {
+  talk.seq = visemeSeq(text); talk.t0 = now(); talk.dur = Math.max(0.8, durSec); talk.active = true; talk.nextNod = now();
+  S.speaking = true;
+}
+function stopTalk() { talk.active = false; S.speaking = false; }
+
+// ---------- actions ----------
 const quip = (text, ms = 1500) => {
-  if (state.speaking) return;
+  if (S.speaking) return;
   bubble.hidden = false; bubble.textContent = text;
-  clearTimeout(quip.t); quip.t = setTimeout(() => { if (!state.speaking) bubble.hidden = true; }, ms);
+  clearTimeout(quip.t); quip.t = setTimeout(() => { if (!S.speaking) bubble.hidden = true; }, ms);
 };
 const ACT = {
-  flex: () => { show('flex', 4200); setMood('playful', 4200); },
-  flexL: () => { show('flexL', 3600); setMood('playful', 3600); },
-  flexR: () => { show('flexR', 3600); setMood('playful', 3600); },
-  smile: () => { show('base'); state.smileBoost = now() + 4500; setMood('happy', 4500); },
-  laugh: () => { show('laugh', 3600); setMood('happy', 3600); },
-  wave: () => { show('wave', 3400); setMood('happy', 3400); },
-  hips: () => { show('hips', 4000); setMood('serious', 4000); },
-  serious: () => { show('serious', 4000); setMood('serious', 4000); },
-  turn: () => startTurn('back'),
-  front: () => { startTurn('base'); },
-  wink: () => { state.wink = 1; setMood('playful', 1300); },
-  blink: () => { state.forceBlink = 1; },
-  surprised: () => setMood('surprised', 2400),
-  sad: () => setMood('sad', 3200),
-  tilt: () => { state.ttilt = 7; setTimeout(() => (state.ttilt = 0), 2200); setMood('playful', 2200); },
-  hair: () => { hair.v += 4; state.shakeUntil = now() + 900; setMood('playful', 1800); },
-  shake: () => { state.shakeUntil = now() + 1500; },
-  nod: () => { state.nodUntil = now() + 1500; setMood('happy', 1500); },
-  lookL: () => { state.gaze.tx = -1.2; state.lookUntil = now() + 2200; },
-  lookR: () => { state.gaze.tx = 1.2; state.lookUntil = now() + 2200; },
-  lookU: () => { state.gaze.ty = -1.2; state.lookUntil = now() + 2200; },
-  lookD: () => { state.gaze.ty = 1.2; state.lookUntil = now() + 2200; },
-  lookAtMe: () => { state.gaze.tx = 0; state.gaze.ty = 0; state.lookUntil = now() + 2200; },
+  flex: () => { setPose('flex', 4.5); setMood('playful', 4.5); },
+  flexL: () => { setPose('flex', 3.8, 'L'); setMood('playful', 3.8); },
+  flexR: () => { setPose('flex', 3.8, 'R'); setMood('playful', 3.8); },
+  smile: () => { S.smileBoost = now() + 4.5; setMood('happy', 4.5); },
+  laugh: () => { S.laughUntil = now() + 3.6; setMood('happy', 3.6); },
+  wave: () => { setPose('wave', 3.6, 'R'); setMood('happy', 3.6); },
+  hips: () => { setPose('hips', 4.2); setMood('serious', 4.2); },
+  serious: () => { setPose('serious', 4.2); setMood('serious', 4.2); },
+  turn: () => { S.turnTarget = Math.PI; S.backUntil = now() + 6.5; sp.root.t = Math.PI; },
+  front: () => { S.turnTarget = 0; S.backUntil = 0; sp.root.t = Math.round(sp.root.x / (2 * Math.PI)) * 2 * Math.PI; },
+  spin: () => { sp.root.t = sp.root.x + 2 * Math.PI; setMood('happy', 2.5); },
+  wink: () => { S.wink = 1; setMood('playful', 1.3); },
+  blink: () => { S.forceBlink = 1; },
+  surprised: () => setMood('surprised', 2.4),
+  sad: () => setMood('sad', 3.2),
+  tilt: () => { sp.hr.t = 0.28; setTimeout(() => (sp.hr.t = 0), 2200); setMood('playful', 2.2); },
+  hair: () => { S.shakeUntil = now() + 1.0; sp.hr.kick(3); setMood('playful', 1.8); },
+  shake: () => { S.shakeUntil = now() + 1.5; },
+  nod: () => { S.nodUntil = now() + 1.5; setMood('happy', 1.5); },
+  lookL: () => { S.glance = { x: -1, y: 0 }; S.glanceUntil = now() + 2.2; },
+  lookR: () => { S.glance = { x: 1, y: 0 }; S.glanceUntil = now() + 2.2; },
+  lookU: () => { S.glance = { x: 0, y: 1 }; S.glanceUntil = now() + 2.2; },
+  lookD: () => { S.glance = { x: 0, y: -1 }; S.glanceUntil = now() + 2.2; },
+  lookAtMe: () => { S.glance = { x: 0, y: 0 }; S.glanceUntil = now() + 2.5; },
 };
-function act(name) { if (ACT[name]) { ACT[name](); return true; } return false; }
-
-// natural-language commands, Hebrew + English; first match wins
+const act = (n) => (ACT[n] ? (ACT[n](), true) : false);
 const CMDS = [
-  [/תסתובבי חזרה|תחזרי|פני אלי|תסתכלי עלי|תסתכלי אלי|turn back|face me|come back|turn around again/, 'front'],
-  [/תסתובבי|סיבוב|תסתובב|turn around|spin|show me your back/, 'turn'],
+  [/תסתובבי חזרה|תחזרי|פני אלי|תסתכלי עלי|תסתכלי אלי|turn back|face me|come back/, 'front'],
+  [/סביב עצמך|spin|360/, 'spin'],
+  [/תסתובבי|סיבוב|תסתובב|turn around|show me your back/, 'turn'],
   [/(שרירים|שריר|תכופפי|פלקס|תפגיני|flex|muscle|bicep).*(ימין|right)|(ימין|right).*(שרירים|שריר|תכופפי|פלקס|flex|muscle|bicep)/, 'flexR'],
   [/(שרירים|שריר|תכופפי|פלקס|תפגיני|flex|muscle|bicep).*(שמאל|left)|(שמאל|left).*(שרירים|שריר|תכופפי|פלקס|flex|muscle|bicep)/, 'flexL'],
   [/שרירים|שריר|תכופפי|פלקס|תפגיני|דו.?ראשי|flex|muscle|bicep/, 'flex'],
@@ -210,13 +212,21 @@ function parseCommand(text) {
   return null;
 }
 
-// ---------- touch: what part of her did you touch? ----------
-// Coordinates are in "eye-distance units" around the eye midpoint, so it works on every pose.
-function regionOf(p) {
-  const c = POSES[view.cur];
-  if (c.back) return { r: 'back', sx: 0 };
-  const x = (p.x - c.mx) / c.ipd, y = (p.y - c.ey) / c.ipd, ax = Math.abs(x), sx = x < 0 ? -1 : 1;
-  if (ax < 1.35 && y > -2.3 && y < 2.0) {
+// ---------- touch: raycast the body, work out which part you touched ----------
+const ray = new THREE.Raycaster();
+function worldPos(n) { return A.bones[n].getWorldPosition(new THREE.Vector3()); }
+function segDist(p, a, b) { const ab = b.clone().sub(a), t = clamp(p.clone().sub(a).dot(ab) / ab.lengthSq(), 0, 1); return p.distanceTo(a.clone().addScaledVector(ab, t)); }
+function regionOf(hit) {
+  const name = hit.object.name, p = hit.point;
+  if (/high-poly|Eye/i.test(name)) return { r: 'eyes', sx: p.x >= 0 ? 1 : -1 };
+  if (/teeth|tongue/i.test(name)) return { r: 'mouth', sx: 0 };
+  if (/hair|ponytail/i.test(name)) return { r: 'hair', sx: p.x >= 0 ? 1 : -1 };
+  // head frame in eye-distance units (eyes are the origin; x to her left, y downward)
+  const eL = worldPos('LeftEye'), eR = worldPos('RightEye'), mid = eL.clone().add(eR).multiplyScalar(0.5);
+  const right = eL.clone().sub(eR).normalize(), up = mid.clone().sub(worldPos('Head')).normalize();
+  const v = p.clone().sub(mid), x = v.dot(right) / A.ipd, y = -v.dot(up) / A.ipd, ax = Math.abs(x), sx = x < 0 ? -1 : 1;
+  if (p.y > worldPos('Neck').y + 0.01 && y < 2.4) {
+    if (ax >= 1.35) return { r: 'hair', sx };
     if (y < -0.55) return { r: 'forehead', sx };
     if (y < 0.3 && ax < 0.95) return { r: 'eyes', sx };
     if (y < 1.0 && ax < 0.4) return { r: 'nose', sx };
@@ -224,216 +234,247 @@ function regionOf(p) {
     if (y < 1.5) return ax < 0.85 ? { r: 'mouth', sx } : { r: 'cheek', sx };
     return { r: 'chin', sx };
   }
-  if (y < -2.3 && ax < 2.2) return { r: 'hair', sx };
-  if (ax < 1.1 && y >= 2.0 && y < 3.2) return { r: 'neck', sx };
-  if (ax >= 3.0 || (c.arms && ax >= 2.2 && y > -1.5 && y < 3.5)) return { r: 'arm', sx };
-  if (ax >= 1.35 && y < 2.9) return { r: 'hair', sx };
-  if (y < 4.6 && ax < 3.2) return { r: 'shoulder', sx };
-  return { r: 'torso', sx };
+  const segs = [['arm', 1, 'LeftArm', 'LeftForeArm'], ['arm', 1, 'LeftForeArm', 'LeftHand'], ['arm', -1, 'RightArm', 'RightForeArm'], ['arm', -1, 'RightForeArm', 'RightHand'],
+    ['shoulder', 1, 'LeftShoulder', 'LeftArm'], ['shoulder', -1, 'RightShoulder', 'RightArm'], ['neck', 0, 'Neck', 'Head'], ['torso', 0, 'Hips', 'Spine2'], ['torso', 0, 'Spine2', 'Neck']];
+  let best = { d: 9, r: 'torso', sx: 0 };
+  for (const [r, sx, a, b] of segs) { if (!A.bones[a] || !A.bones[b]) continue; const d = segDist(p, worldPos(a), worldPos(b)); if (d < best.d) best = { d, r, sx }; }
+  if (/Bottom|Footwear|casualsuit/i.test(name) && p.y < worldPos('Hips').y) return { r: 'legs', sx: 0 };
+  return { r: best.r, sx: best.sx };
 }
 function react({ r, sx }) {
-  state.bounce = 0.6;
-  const yawTo = (v) => { sYaw.v += v * 0.12; };
+  const n = now();
   switch (r) {
-    case 'forehead': setMood('surprised', 900); sPitch.v -= 0.5; state.gaze.ty = -1; state.lookUntil = now() + 1200; quip('היי!'); break;
-    case 'eyes': state.forceBlink = 1; setMood('playful', 1100); quip('אוי!'); break;
-    case 'nose': state.forceBlink = 1; setMood('happy', 1400); sPitch.v -= 0.6; sBlush.t = 0.6; quip('בוּפּ!'); break;
-    case 'cheek': setMood('happy', 1800); sBlush.t = 0.9; yawTo(sx * 9); state.gaze.tx = sx * 1.2; state.lookUntil = now() + 1400; break;
-    case 'mouth': setMood('playful', 1600); sBlush.t = 0.6; sYaw.v += -sx * 0.4 - 0.2; sPitch.v += 0.4; quip('חחח נו…'); break;
-    case 'chin': setMood('happy', 1500); sPitch.v -= 0.6; break;
-    case 'hair': hair.v += sx * 4; setMood('playful', 1500); yawTo(sx * 6); break;
-    case 'neck': setMood('happy', 1500); sShrug.v += 1.2; sBlush.t = 0.4; quip('מדגדג!'); break;
-    case 'shoulder': sShrug.v += 1; setMood('happy', 1400); state.gaze.tx = sx * 1.2; state.lookUntil = now() + 1300; break;
-    case 'arm': act(sx < 0 ? 'flexL' : 'flexR'); quip('רוצה לראות?'); break;
+    case 'forehead': setMood('surprised', 0.9); sp.hp.kick(-2.2); S.glance = { x: 0, y: 1 }; S.glanceUntil = n + 1.2; quip('היי!'); break;
+    case 'eyes': S.forceBlink = 1; setMood('playful', 1.1); sp.hp.kick(-1); quip('אוי!'); break;
+    case 'nose': S.forceBlink = 1; setMood('happy', 1.4); sp.hp.kick(-3); S.blushT = 0.6; quip('בוּפּ!'); break;
+    case 'cheek': setMood('happy', 1.8); sp.hr.kick(sx * 4); sp.hy.kick(sx * 3); S.blushT = 0.9; S.glance = { x: sx, y: 0 }; S.glanceUntil = n + 1.4; break;
+    case 'mouth': setMood('playful', 1.6); sp.hy.kick(-(sx || 1) * 3); sp.hp.kick(2); S.blushT = 0.6; quip('חחח נו…'); break;
+    case 'chin': setMood('happy', 1.5); sp.hp.kick(-2.5); break;
+    case 'hair': sp.hr.kick(sx * 4); sp.hy.kick(sx * 3); setMood('playful', 1.5); break;
+    case 'neck': setMood('happy', 1.5); S.shrugT = 1; setTimeout(() => (S.shrugT = 0), 700); S.blushT = 0.4; quip('מדגדג!'); break;
+    case 'shoulder': S.shrugT = 1; setTimeout(() => (S.shrugT = 0), 600); setMood('happy', 1.4); S.glance = { x: sx, y: 0 }; S.glanceUntil = n + 1.3; break;
+    case 'arm': act(sx > 0 ? 'flexL' : 'flexR'); quip('רוצה לראות?'); break;
     case 'torso': act('flex'); quip('חח, שרירים?'); break;
-    case 'back': startTurn('base'); quip('הייי!'); break;
+    case 'legs': setMood('playful', 1.5); S.glance = { x: 0, y: -1 }; S.glanceUntil = n + 1; quip('היי, אני כאן למעלה!'); break;
   }
 }
-
-// ---------- pointer ----------
-function uv(e) {
-  const r = canvas.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-  return { x: 0.5 + (x - 0.5) / 1.05, y: 0.5 + (y - 0.5) / 1.05, w: r.width, h: r.height };   // undo the 1.05 zoom
+let down = null, holdT = null;
+function ndc(e) { const r = canvas.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) }; }
+function pick(e) {
+  if (!A) return null;
+  const p = ndc(e); ray.setFromCamera(new THREE.Vector2(p.x, p.y), camera);
+  const hits = ray.intersectObjects(A.meshes.filter((m) => m.visible), false);
+  return hits[0] || null;
 }
-const touch = { x: 0.5, y: 0.5, tvx: 0, tvy: 0 };
-function aim(e) {
-  const p = uv(e), c = POSES[view.cur];
-  state.gaze.tx = Math.max(-1.5, Math.min(1.5, (p.x - c.mx) / (c.ipd * 5)));
-  state.gaze.ty = Math.max(-1.5, Math.min(1.5, (p.y - c.ey) / (c.ipd * 5)));
-  state.lastPointer = now(); state.lookUntil = 0;
-}
-let down = null, holdTimer = null;
 stage.addEventListener('pointermove', (e) => {
-  aim(e);
+  const p = ndc(e); S.ptr.x = p.x; S.ptr.y = p.y; S.ptr.last = now();
   if (!down) return;
-  const p = uv(e);
-  touch.x = p.x; touch.y = p.y;
-  const dx = (e.clientX - down.cx) / p.w, dy = (e.clientY - down.cy) / p.h;
-  sTX.t = Math.max(-0.045, Math.min(0.045, dx * 0.45)); sTY.t = Math.max(-0.045, Math.min(0.045, dy * 0.45));
-  if (Math.hypot(e.clientX - down.cx, e.clientY - down.cy) > 14) { clearTimeout(holdTimer); down.moved = true; }
-  state.ttilt = Math.max(-1, Math.min(1, (p.x - 0.5) * 2)) * 5;
+  const dx = e.clientX - down.x, dy = e.clientY - down.y;
+  if (!down.moved && Math.hypot(dx, dy) > 12) { down.moved = true; clearTimeout(holdT); }
+  if (down.moved && down.body) { sp.root.t = down.rootT + dx * 0.012; S.backUntil = 0; }   // drag the body = spin her
 });
 stage.addEventListener('pointerdown', (e) => {
   stage.setPointerCapture(e.pointerId);
   window.DeviceOrientationEvent?.requestPermission?.().catch(() => {});
-  const p = uv(e), t = now();
-  down = { cx: e.clientX, cy: e.clientY, t, moved: false, reg: regionOf(p), w: p.w };
-  touch.x = p.x; touch.y = p.y; sPress.t = 1; sTX.t = 0; sTY.t = 0;
-  aim(e);
+  const p = ndc(e); S.ptr.x = p.x; S.ptr.y = p.y; S.ptr.last = now();
+  const hit = pick(e), reg = hit ? regionOf(hit) : null; S.lastRegion = reg ? reg.r : null;
+  const headPart = reg && ['forehead', 'eyes', 'nose', 'cheek', 'mouth', 'chin', 'hair', 'neck'].includes(reg.r);
+  down = { x: e.clientX, y: e.clientY, t: now(), moved: false, reg, rootT: sp.root.t, body: !headPart };
   navigator.vibrate?.(15);
-  if (down.reg.r === 'eyes' && t - state.lastTap < 380) { state.wink = 1; setMood('playful', 1400); quip('😉'); }
-  else react(down.reg);
-  state.lastTap = t;
-  clearTimeout(holdTimer);
-  holdTimer = setTimeout(() => { sBlush.t = 1; setMood('happy', 3000); navigator.vibrate?.(30); }, 700);
+  if (reg && headPart) react(reg);
+  clearTimeout(holdT);
+  holdT = setTimeout(() => { S.blushT = 1; setMood('happy', 3); navigator.vibrate?.(30); }, 700);
 });
-const release = (e) => {
-  clearTimeout(holdTimer);
-  if (down && e?.clientX != null) {
-    const dx = e.clientX - down.cx, dt = now() - down.t;
-    // quick horizontal swipe across her body = turn around
-    if (Math.abs(dx) > down.w * 0.3 && dt < 600 && !['forehead', 'eyes', 'nose', 'cheek', 'mouth', 'chin'].includes(down.reg.r)) {
-      startTurn(view.cur === 'back' ? 'base' : 'back');
-    }
-  }
-  down = null; state.ttilt = 0; sPress.t = 0; sTX.t = 0; sTY.t = 0; sBlush.t = 0;
+const release = () => {
+  clearTimeout(holdT);
+  if (down && !down.moved && down.reg && down.body) react(down.reg);     // body taps react on release so a drag can spin her instead
+  if (down && down.moved && down.body) { S.turnTarget = sp.root.t; S.backUntil = now() + 4; }
+  down = null; S.blushT = 0;
 };
 stage.addEventListener('pointerup', release);
-stage.addEventListener('pointercancel', () => release());
-stage.addEventListener('pointerleave', () => { if (!down && now() > state.lookUntil) { state.gaze.tx = 0; state.gaze.ty = 0; } });
+stage.addEventListener('pointercancel', release);
+stage.addEventListener('pointerleave', () => { if (!down) S.ptr.last = -99; });
 window.addEventListener('deviceorientation', (e) => {
-  if (now() - state.lastPointer < 2500 || e.gamma == null) return;
-  state.gaze.tx = Math.max(-1, Math.min(1, e.gamma / 30));
-  state.gaze.ty = Math.max(-1, Math.min(1, ((e.beta || 45) - 45) / 30));
+  if (now() - S.ptr.last < 2.5 || e.gamma == null) return;
+  S.ptr.x = clamp(e.gamma / 30, -1, 1); S.ptr.y = clamp(-((e.beta || 45) - 45) / 30, -1, 1); S.ptr.last = now() - 1.9;
 });
 
-// ---------- render ----------
-const lerp = (a, b, k) => a + (b - a) * k;
-let last = now();
-function pass(name, a, f, P) {
-  const c = POSES[name]; if (!c.ready) return;
-  gl.bindTexture(gl.TEXTURE_2D, c.tex);
-  gl.uniform1f(U.alpha, a);
-  gl.uniform1f(U.faceOn, c.face);
-  gl.uniform1f(U.ipd, c.ipd); gl.uniform1f(U.fipd, c.ipd); gl.uniform1f(U.neck, c.neck); gl.uniform2f(U.fc, c.fc[0], c.fc[1]);
-  if (c.face) { gl.uniform2f(U.EL, c.EL[0], c.EL[1]); gl.uniform2f(U.ER, c.ER[0], c.ER[1]); gl.uniform2f(U.MC, c.MC[0], c.MC[1]); }
-  gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0);
+// ---------- per-frame update ----------
+const qTmp = new THREE.Quaternion(), eTmp = new THREE.Euler();
+function offset(name, x, y, z) {
+  const b = A.bones[name]; if (!b) return;
+  b.quaternion.copy(A.rest[name]).multiply(qTmp.setFromEuler(eTmp.set(x, y, z)));
 }
-function frame(t) {
+function aim(bone, child, dirWorld) {
+  const b = A.bones[bone], c = A.bones[child]; if (!b || !c) return;
+  b.updateWorldMatrix(true, false); c.updateWorldMatrix(true, false);
+  const cur = c.getWorldPosition(new THREE.Vector3()).sub(b.getWorldPosition(new THREE.Vector3())).normalize();
+  const d = new THREE.Quaternion().setFromUnitVectors(cur, dirWorld.clone().normalize());
+  const wq = b.getWorldQuaternion(new THREE.Quaternion()).premultiply(d);
+  const pq = b.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+  b.quaternion.copy(wq.premultiply(pq));
+  b.updateWorldMatrix(false, true);
+}
+const FINGERS = ['Index', 'Middle', 'Ring', 'Pinky'];
+function setFingers(side, curl) {
+  for (const f of FINGERS) for (let i = 1; i <= 3; i++) {
+    const n = `${side}Hand${f}${i}`; const b = A.bones[n]; if (!b) continue;
+    const amt = curl * (i === 1 ? 1.15 : 1.35) * (side === 'Left' ? 1 : -1);
+    b.quaternion.copy(A.rest[n]).multiply(qTmp.setFromAxisAngle(V(0, 0, 1), amt));
+  }
+  for (let i = 1; i <= 3; i++) {
+    const n = `${side}HandThumb${i}`; const b = A.bones[n]; if (!b) continue;
+    b.quaternion.copy(A.rest[n]).multiply(qTmp.setFromAxisAngle(V(0, 1, 0), curl * 0.5 * (side === 'Left' ? 1 : -1)));
+  }
+}
+function morph(n, v) { if (v > (morphT[n] || 0)) morphT[n] = v; }   // keep the strongest request this frame
+
+let last = now();
+const time0 = now();
+function frame() {
   requestAnimationFrame(frame);
-  if (!POSES.base.ready) return;
-  const dt = Math.min(50, t - last); last = t;
+  const t = now(), dt = Math.min(0.05, t - last); last = t;
+  if (!A) { renderer.render(scene, camera); return; }
+  const tt = t - time0;
 
-  // pose timers + turn-around
-  if (view.until && t > view.until) { if (view.cur === 'back') startTurn('base'); else show('base'); }
-  view.fade = Math.min(1, view.fade + dt / 220); if (view.fade >= 1) view.prev = null;
-  if (view.turn) {
-    const k = (t - view.turn.t0) / 950;
-    if (k < 0.5) view.squash = 1 - Math.pow(k * 2, 2) * 0.96;
+  // timers
+  if (S.poseUntil && t > S.poseUntil) setPose('idle');
+  if (S.backUntil && t > S.backUntil) { S.backUntil = 0; S.turnTarget = 0; sp.root.t = Math.round(sp.root.x / (2 * Math.PI)) * 2 * Math.PI; }
+  if (t > S.moodUntil) S.mood = S.speaking ? 'happy' : IDLE_MOOD[S.mode];
+  S.blush = lerp(S.blush, S.blushT, 1 - Math.exp(-dt * 3));
+
+  // ---- attention: eyes lead, head follows ----
+  const havePtr = t - S.ptr.last < 3;
+  let gx = 0, gy = 0;
+  if (t < S.glanceUntil) { gx = S.glance.x; gy = S.glance.y; }
+  else if (havePtr) { gx = clamp(S.ptr.x * 1.1, -1, 1); gy = clamp((S.ptr.y - 0.3) * 1.2, -1, 1); }
+  else {
+    if (t > S.nextGlance) { S.glance = { x: (Math.random() - 0.5) * 1.1, y: (Math.random() - 0.5) * 0.5 }; if (Math.random() < 0.4) S.glance = { x: 0, y: 0 }; S.nextGlance = t + 0.8 + Math.random() * 2.6; }
+    gx = S.glance.x; gy = S.glance.y;
+  }
+  const backFacing = Math.cos(sp.root.x) < 0;
+  sp.ay.t = backFacing ? 0 : gx * 0.55; sp.ap.t = backFacing ? 0 : -gy * 0.3;
+
+  // ---- blink ----
+  S.nextBlink -= dt;
+  if (S.nextBlink < 0) { S.blinkDir = 1; S.nextBlink = 2 + Math.random() * 4.5; if (Math.random() < 0.18) S.nextBlink = 0.25; }
+  if (S.forceBlink) { S.blinkDir = 1; S.forceBlink = 0; }
+  if (S.blinkDir === 1) { S.blink += dt / 0.07; if (S.blink >= 1) { S.blink = 1; S.blinkDir = -1; } }
+  else if (S.blinkDir === -1) { S.blink -= dt / 0.12; if (S.blink <= 0) { S.blink = 0; S.blinkDir = 0; } }
+  S.wink = Math.max(0, S.wink - dt / 0.9);
+
+  // ---- face targets ----
+  for (const k of Object.keys(morphT)) morphT[k] = 0;
+  const m = MOOD[S.mood] || MOOD.neutral;
+  for (const [k, v] of Object.entries(m)) morph(k, v);
+  if (t < S.smileBoost) { morph('mouthSmileLeft', 0.8); morph('mouthSmileRight', 0.8); morph('cheekSquintLeft', 0.5); morph('cheekSquintRight', 0.5); morph('eyeSquintLeft', 0.3); morph('eyeSquintRight', 0.3); }
+  if (t < S.laughUntil) { const l = 0.5 + 0.5 * Math.sin(t * 17); morph('jawOpen', 0.18 + 0.32 * l); morph('mouthSmileLeft', 0.95); morph('mouthSmileRight', 0.95); morph('eyeSquintLeft', 0.7); morph('eyeSquintRight', 0.7); morph('cheekSquintLeft', 0.7); morph('cheekSquintRight', 0.7); }
+  morph('eyeBlinkLeft', S.blink); morph('eyeBlinkRight', Math.max(S.blink, S.wink > 0 ? 1 : 0));
+  if (S.wink > 0) { morph('cheekSquintRight', 0.7); morph('mouthSmileRight', 0.8); }
+  const ex = gx * 0.85, ey = gy * 0.7;
+  if (!backFacing) {
+    if (ex > 0) { morph('eyeLookOutLeft', ex); morph('eyeLookInRight', ex); } else { morph('eyeLookInLeft', -ex); morph('eyeLookOutRight', -ex); }
+    if (ey > 0) { morph('eyeLookUpLeft', ey); morph('eyeLookUpRight', ey); } else { morph('eyeLookDownLeft', -ey); morph('eyeLookDownRight', -ey); }
+  }
+  // lip-sync
+  let nodKick = 0;
+  if (talk.active) {
+    const k = (t - talk.t0) / talk.dur, i = Math.floor(k * talk.seq.length);
+    if (k >= 1) stopTalk();
     else {
-      if (!view.turn.swapped) { view.turn.swapped = true; view.cur = view.turn.to; view.prev = null; view.fade = 1; view.until = view.cur === 'back' ? t + 7000 : 0; }
-      view.squash = 0.04 + (1 - Math.pow(1 - (k - 0.5) * 2, 2)) * 0.96;
+      const cur = talk.seq[clamp(i, 0, talk.seq.length - 1)];
+      if (cur && cur.v !== 'sil') { const flutter = 0.82 + 0.18 * Math.sin(t * 31); morph('viseme_' + cur.v, cur.w * flutter); morph('jawOpen', cur.v === 'aa' ? 0.12 : 0.05); }
+      else morph('viseme_sil', 0.2);
+      if (cur && cur.v === 'sil' && t > talk.nextNod) { talk.nextNod = t + 0.35 + Math.random() * 0.5; nodKick = 1; }
     }
-    if (k >= 1) { view.turn = null; view.squash = 1; }
-  } else view.squash = 1;
+  }
+  // apply morphs with smoothing
+  const ks = 1 - Math.exp(-dt * 26);
+  for (const mesh of A.faces) {
+    const dict = mesh.morphTargetDictionary, inf = mesh.morphTargetInfluences;
+    for (const name in dict) {
+      const idx = dict[name], c = inf[idx], tgt = morphT[name] || 0;
+      inf[idx] = c + (tgt - c) * ks;
+    }
+  }
+  for (const mat of A.skin) mat.emissive.setRGB(0.28 * S.blush, 0.03 * S.blush, 0.06 * S.blush);
 
-  if (t > state.moodUntil) state.mood = state.speaking ? 'happy' : IDLE_MOOD[state.mode];
-  if (state.lookUntil && t > state.lookUntil) { state.lookUntil = 0; state.gaze.tx = 0; state.gaze.ty = 0; }
-  const g = state.gaze;
-  g.x = lerp(g.x, g.tx, 0.12); g.y = lerp(g.y, g.ty, 0.12);
-  state.tilt = lerp(state.tilt, state.ttilt + g.x * 2.5, 0.1);
-  state.bounce = Math.max(0, state.bounce - dt / 400);
-  state.wink = Math.max(0, state.wink - dt / 700);
+  // ---- body: breathing, weight shift, attention, reactions ----
+  const breath = Math.sin(tt * 1.7), sway = Math.sin(tt * 0.45) + 0.4 * Math.sin(tt * 1.1);
+  if (nodKick) sp.hp.kick(0.6);
+  const nod = t < S.nodUntil ? Math.sin(tt * 9) * 0.22 : 0, shake = t < S.shakeUntil ? Math.sin(tt * 11) * 0.35 : 0;
+  const idleY = Math.sin(tt * 0.7) * 0.05 + Math.sin(tt * 1.9) * 0.02, idleP = Math.sin(tt * 0.9 + 1) * 0.025, idleR = Math.sin(tt * 0.6 + 2) * 0.03;
+  const yaw = sp.ay.step(dt) + sp.hy.step(dt) + idleY + shake, pitch = sp.ap.step(dt) + sp.hp.step(dt) + idleP + nod + (S.mood === 'serious' ? 0.04 : 0), roll = sp.hr.step(dt) + idleR + yaw * 0.12;
+  offset('Hips', 0, 0, sway * 0.018);
+  offset('Spine', breath * 0.004, yaw * 0.12, -sway * 0.012);
+  offset('Spine1', breath * 0.006, yaw * 0.18, -sway * 0.008);
+  offset('Spine2', breath * 0.012 + 0.01, yaw * 0.2, 0);
+  offset('Neck', pitch * 0.35, yaw * 0.35, roll * 0.3);
+  offset('Head', pitch * 0.65, yaw * 0.65, roll * 0.7);
+  for (const s of ['Left', 'Right']) if (A.bones[`${s}Shoulder`]) A.bones[`${s}Shoulder`].quaternion.copy(A.rest[`${s}Shoulder`]);
+  A.root.rotation.y = sp.root.step(dt);
+  A.root.position.x = sway * 0.006; A.root.position.y = breath * 0.0015;
+  A.root.updateMatrixWorld(true);
 
-  const breath = Math.sin(t / 900), swayIdle = Math.sin(t / 2600);
-  const hop = Math.sin(state.bounce * Math.PI) * -0.012;
-  const surprised = state.mood === 'surprised';
+  // shrug: aim clavicles up a little, arms follow
+  sp.shrug.t = S.shrugT + (S.mood === 'surprised' ? 0.6 : 0) + breath * 0.04;
+  const sh = sp.shrug.step(dt), rq = A.root.getWorldQuaternion(new THREE.Quaternion());
+  for (const s of ['Left', 'Right']) aim(`${s}Shoulder`, `${s}Arm`, A.shoulderDir[s].clone().add(V(0, sh * 0.5, 0)).applyQuaternion(rq));
+  // arms: spring the aim directions, aim bones in world space
+  for (const [side, s] of [['L', 'Left'], ['R', 'Right']]) {
+    const a = arm[side];
+    if (S.pose === 'wave' && side === 'R') a.F.t.set(-(0.2 + 0.55 * (0.5 + 0.5 * Math.sin(tt * 9))), 1, 0.12);
+    const U = a.U.step(dt).clone().applyQuaternion(rq), F = a.F.step(dt).clone().applyQuaternion(rq);
+    aim(`${s}Arm`, `${s}ForeArm`, U);
+    aim(`${s}ForeArm`, `${s}Hand`, F);
+    setFingers(s, a.fist.step(dt) * 1.25);
+    // flexing: bicep swells (upper arm thickens, forearm counter-scaled so it stays normal)
+    bulge[side].t = S.pose === 'flex' && S.poseSides.includes(side) ? 1 : 0;
+    const bg = bulge[side].step(dt), u = 1 + 0.26 * bg, f = (1 + 0.12 * bg) / u;
+    A.bones[`${s}Arm`]?.scale.set(u, 1, u); A.bones[`${s}ForeArm`]?.scale.set(f, 1, f);
+  }
 
-  hair.v += -(state.tilt - hair.prevTilt) * 0.5 - (state.bounce - hair.prevBounce) * 5 - hair.sway * 0.07;
-  hair.v *= 0.9; hair.sway += hair.v;
-  hair.prevTilt = state.tilt; hair.prevBounce = state.bounce;
-
-  const [sm, br] = FACE[state.mood] || FACE.neutral;
-  sSmile.t = t < state.smileBoost ? 1.35 : sm; sBrow.t = br;
-  sOpen.t = state.speaking ? Math.max(0, Math.sin(t / 85) + Math.sin(t / 53) * 0.8) * 0.55
-    : t < state.smileBoost ? 0.14 : surprised ? 0.7 : state.mood === 'happy' ? 0.12 : 0;
-  if (!down && !sBlush.t) sBlush.t = 0;
-  sShrug.t = surprised ? 0.6 : 0;
-  // head shake / nod
-  const shake = t < state.shakeUntil ? Math.sin(t / 90) * 0.9 : 0;
-  const nod = t < state.nodUntil ? Math.sin(t / 110) * 0.8 : 0;
-  sYaw.t = g.x * 0.5 + shake; sPitch.t = g.y * 0.4 + nod;
-
-  state.nextBlink -= dt;
-  if (state.nextBlink < 0) { state.blink = 1; state.nextBlink = 1800 + Math.random() * 3500; }
-  if (state.forceBlink) { state.blink = 1; state.forceBlink = 0; }
-  state.blink = Math.max(0, state.blink - dt / 150);
-  const closeness = Math.sin(state.blink * Math.PI);
-  const squint = state.mood === 'serious' ? 0.18 : state.mood === 'happy' ? 0.1 : 0;
-
-  // skin that follows the finger (underdamped spring = jelly wobble on release)
-  const tvx = sTX.step(), tvy = sTY.step(), press = sPress.step();
-
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(0.41, 0.46, 0.5, 1); gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.uniform1f(U.tilt, (state.tilt * Math.PI) / 180);
-  gl.uniform1f(U.breath, breath + (state.speaking ? 0.4 : 0));
-  gl.uniform1f(U.sway, hair.sway + Math.sin(t / 1700) * 0.8);
-  gl.uniform1f(U.squash, view.squash);
-  gl.uniform1f(U.shrug, sShrug.step());
-  gl.uniform1f(U.yaw, sYaw.step()); gl.uniform1f(U.pitch, sPitch.step());
-  gl.uniform1f(U.tpress, press); gl.uniform2f(U.tpos, touch.x, touch.y); gl.uniform2f(U.tvec, tvx, tvy);
-  gl.uniform2f(U.headShift, g.x * 0.012 + swayIdle * 0.003, g.y * 0.008 + hop + breath * 0.002);
-  gl.uniform2f(U.bodyShift, swayIdle * 0.002, 0);
-  gl.uniform2f(U.gaze, g.x + Math.sin(t / 2300) * 0.15, g.y + Math.cos(t / 3100) * 0.08);
-  gl.uniform1f(U.blinkL, Math.max(closeness, squint));
-  gl.uniform1f(U.blinkR, state.wink > 0 ? 1 : Math.max(closeness, squint));
-  gl.uniform1f(U.mouthOpen, Math.max(0, sOpen.step()));
-  gl.uniform1f(U.smile, sSmile.step()); gl.uniform1f(U.brow, sBrow.step());
-  gl.uniform1f(U.blush, Math.max(0, sBlush.step()));
-  if (view.prev) pass(view.prev, 1);
-  pass(view.cur, view.prev ? view.fade : 1);
+  // camera: dolly + a touch of parallax from the pointer
+  const camD = sp.camD.step(dt), camY = sp.camY.step(dt);
+  const px = havePtr ? S.ptr.x : 0, py = havePtr ? S.ptr.y : 0;
+  camera.position.set(lerp(camera.position.x, px * 0.14, 0.05), camY + 0.14 + lerp(camera.position.y - camY - 0.14, py * 0.05, 0.05), camD);
+  camera.lookAt(0, camY - 0.02, 0);
+  renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
 
 // ---------- modes + quick commands ----------
 document.querySelectorAll('.modes button').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('.modes button').forEach((x) => x.classList.toggle('on', x === b));
-  state.mode = b.dataset.mode;
+  S.mode = b.dataset.mode;
   history.length = 0;
-  if (state.mode === 'firm') act('hips'); else if (state.mode === 'normal') act('wave');
-  say({ soft: 'היי, אני כאן. בקצב שלך.', normal: 'היי! מה קורה?', firm: 'טוב. מקשיבה. תדבר ברור.' }[state.mode],
-    { soft: 'happy', normal: 'playful', firm: 'serious' }[state.mode]);
+  if (S.mode === 'firm') act('hips'); else if (S.mode === 'normal') act('wave');
+  say({ soft: 'היי, אני כאן. בקצב שלך.', normal: 'היי! מה קורה?', firm: 'טוב. מקשיבה. תדבר ברור.' }[S.mode],
+    { soft: 'happy', normal: 'playful', firm: 'serious' }[S.mode]);
 }));
-document.querySelectorAll('.chips button').forEach((b) => b.addEventListener('click', () => {
-  const a = b.dataset.act; act(a); navigator.vibrate?.(10);
-  addLine('me', b.textContent);
-}));
+document.querySelectorAll('.chips button').forEach((b) => b.addEventListener('click', () => { act(b.dataset.act); navigator.vibrate?.(10); addLine('me', b.textContent); }));
 
 // ---------- chat ----------
-const log = $('#log'), bubble = $('#bubble');
 const history = [];
-function addLine(cls, text) {
-  const p = document.createElement('p'); p.className = cls; p.textContent = text;
-  log.append(p); log.scrollTop = log.scrollHeight;
-}
+function addLine(cls, text) { const p = document.createElement('p'); p.className = cls; p.textContent = text; log.append(p); log.scrollTop = log.scrollHeight; }
 function say(text, mood = 'neutral') {
   addLine('her', text);
   bubble.hidden = false; bubble.textContent = text;
-  setMood(mood, 3500);
+  setMood(mood, 3.5);
+  const est = (text.length / 13) / (S.mode === 'firm' ? 1.1 : S.mode === 'soft' ? 0.92 : 1);
   if ($('#voice').checked && 'speechSynthesis' in window) {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = /[֐-׿]/.test(text) ? 'he-IL' : 'en-US';
-    u.rate = state.mode === 'firm' ? 1.1 : state.mode === 'soft' ? 0.92 : 1;
-    u.pitch = state.mode === 'firm' ? 0.85 : 1.1;
-    u.onstart = () => (state.speaking = true);
-    u.onend = u.onerror = () => { state.speaking = false; bubble.hidden = true; };
+    u.rate = S.mode === 'firm' ? 1.1 : S.mode === 'soft' ? 0.92 : 1;
+    u.pitch = S.mode === 'firm' ? 0.85 : 1.1;
+    u.onstart = () => startTalk(text, est);
+    u.onboundary = (e) => { if (talk.active && e.charIndex != null) talk.t0 = now() - (e.charIndex / text.length) * talk.dur; };
+    u.onend = u.onerror = () => { stopTalk(); bubble.hidden = true; };
     speechSynthesis.speak(u);
   } else {
-    state.speaking = true;
-    setTimeout(() => { state.speaking = false; bubble.hidden = true; }, Math.min(6000, text.length * 70));
+    startTalk(text, est);
+    setTimeout(() => { stopTalk(); bubble.hidden = true; }, Math.min(7000, est * 1000 + 400));
   }
 }
 const OFFLINE = {
@@ -451,23 +492,19 @@ async function send(text) {
   addLine('me', text);
   history.push({ role: 'user', content: text });
   const cmd = parseCommand(text);
-  if (cmd) act(cmd);                                   // instant, no round trip
-  setMood('neutral', 600);
+  if (cmd) act(cmd);
+  setMood('neutral', 0.6);
   let out;
-  try { out = await ask(state.mode, history.map((m, i) => (i === history.length - 1 && cmd ? { ...m, content: `${m.content}\n(The app already performed the action "${cmd}" on screen.)` } : m))); } catch { out = { offline: true }; }
+  try { out = await ask(S.mode, history.map((m, i) => (i === history.length - 1 && cmd ? { ...m, content: `${m.content}\n(The app already performed the action "${cmd}" on screen.)` } : m))); } catch { out = { offline: true }; }
   if (!out || out.offline || out.error) {
-    const pool = OFFLINE[state.mode];
-    out = { mood: 'playful', reply: cmd ? ({ flex: 'הנה, תראה!', smile: 'כזה?', turn: 'סיבוב!', wave: 'היי!', wink: '😉' }[cmd] || 'בטח!') : pool[Math.floor(Math.random() * pool.length)] };
+    const pool = OFFLINE[S.mode];
+    out = { mood: 'playful', reply: cmd ? ({ flex: 'הנה, תראה!', smile: 'כזה?', turn: 'סיבוב!', wave: 'היי!', wink: 'קריצה!' }[cmd] || 'בטח!') : pool[Math.floor(Math.random() * pool.length)] };
   }
-  if (!cmd && out.act) act(out.act);                   // Claude can decide to move too
+  if (!cmd && out.act) act(out.act);
   history.push({ role: 'assistant', content: out.reply });
   say(out.reply, out.mood);
 }
-$('#form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const t = $('#text').value.trim(); if (!t) return;
-  $('#text').value = ''; send(t);
-});
+$('#form').addEventListener('submit', (e) => { e.preventDefault(); const t = $('#text').value.trim(); if (!t) return; $('#text').value = ''; send(t); });
 
 // ---------- voice input ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -480,5 +517,35 @@ else {
   mic.addEventListener('click', () => { speechSynthesis.cancel(); mic.classList.add('rec'); rec.start(); });
 }
 
-act('wave');
-say('היי, אני נועה. תיגע בי, תגיד "תעשי שרירים", "תחייכי" או "תסתובבי".', 'happy');
+// ---------- your own avatar (GLB with ARKit blend shapes, e.g. Ready Player Me / Avaturn) ----------
+const idb = {
+  open: () => new Promise((res, rej) => { const r = indexedDB.open('noa', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }),
+  async get(k) { const db = await this.open(); return new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); },
+  async set(k, v) { const db = await this.open(); return new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); },
+  async del(k) { const db = await this.open(); return new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); },
+};
+const fileIn = $('#glb');
+$('#loadAvatar').addEventListener('click', () => fileIn.click());
+fileIn.addEventListener('change', async () => {
+  const f = fileIn.files[0]; if (!f) return;
+  try { const buf = await f.arrayBuffer(); await loadAvatar(buf); try { await idb.set('avatar', buf); } catch {} quip('האווטאר נטען!', 2000); }
+  catch (e) { quip('הקובץ לא נטען. צריך GLB עם שלד והבעות פנים.', 3500); }
+  fileIn.value = '';
+});
+async function defaultBuffer() { return DEFAULT_GLB ? b64ToBuf(DEFAULT_GLB()) : (await fetch('models/noa.glb')).arrayBuffer(); }
+$('#resetAvatar').addEventListener('click', async () => { try { await idb.del('avatar'); } catch {} await loadAvatar(await defaultBuffer()); quip('חזרתי לדמות ברירת המחדל', 2000); });
+
+//GLB-START
+const DEFAULT_GLB = null;
+//GLB-END
+async function boot() {
+  let buf = null;
+  try { buf = await idb.get('avatar'); } catch {}
+  try { await loadAvatar(buf || (await defaultBuffer())); }
+  catch (e) { console.error(e); await loadAvatar(await defaultBuffer()); }
+  $('#loading')?.remove();
+  act('wave');
+  say('היי, אני נועה. תיגע בי, גרור אותי לסיבוב, או תגיד "תעשי שרירים", "תחייכי" או "תסתובבי".', 'happy');
+}
+window.__noa = { act, S, sp, get A() { return A; }, setPose };
+boot();
