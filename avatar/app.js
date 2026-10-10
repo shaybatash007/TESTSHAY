@@ -204,7 +204,7 @@ const ACT = {
   lookAtMe: () => { S.glance = { x: 0, y: 0 }; S.glanceUntil = now() + 2.5; },
 };
 for (const id of ['gym', 'run', 'beach', 'tropic', 'evening', 'casual', 'black']) ACT['outfit_' + id] = () => { setOutfit(id); setMood('happy', 2.5); };
-function startTurn(to) { if (S.turn || S.scene === to) return; S.turn = { t0: now(), to, swapped: false }; if (to === 'back') loadTex(S.outfit + '/back', baseUrl(S.outfit, 'back')); }
+function startTurn(to) { if (S.scene === to) return; showScene(to, to === 'back' ? 6.5 : 0, 0.45); }
 const act = (n) => (ACT[n] ? (ACT[n](), true) : false);
 const CMDS = [
   [/תסתובבי חזרה|תחזרי|פני אלי|תסתכלי עלי|תסתכלי אלי|turn back|face me|come back/, 'front'],
@@ -379,6 +379,9 @@ function frame() {
   st.bl = Math.max(S.blink, 0); st.br = Math.max(S.blink, S.wink > 0 ? 1 : 0);
   if (S.wink > 0) { st.bl = S.blink; }
 
+  // the photo is never bent: no squash, sway, tilt or skin pull (those were the visible distortions)
+  Object.assign(st, { tilt: 0, breath: 0, sway: 0, press: 0, tx: 0, ty: 0, hx: 0, hy: 0, look: 0 });
+  S.squash = 1;
   // draw
   resize(); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0.42, 0.46, 0.5, 1); gl.clear(gl.COLOR_BUFFER_BIT);
   const g = geomOf(faceScene && MF.scenes[faceScene] ? faceScene : 'main'); setGlobalUniforms(g, t, st);
