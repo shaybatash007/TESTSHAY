@@ -189,10 +189,11 @@ function setOutfit(id) {
 // ---------- real video clips (image-to-video, landing exactly on the photos) ----------
 const vid = document.createElement('video'); vid.muted = true; vid.playsInline = true; vid.setAttribute('playsinline', ''); vid.preload = 'auto'; vid.crossOrigin = 'anonymous';
 const vtex = gl.createTexture(); let clip = null;
+const clipExt = vid.canPlayType('video/mp4; codecs="avc1.42E01E"') ? '.mp4' : '.webm';
 function hasClip(name) { return !!MF?.clips?.[S.outfit]?.[name]; }
 function playClip(name, onEnd) {
   const src = MF?.clips?.[S.outfit]?.[name]; if (!src) return false;
-  clip = { name, onEnd, ready: false }; vid.src = url('live/' + src); vid.currentTime = 0;
+  clip = { name, onEnd, ready: false }; vid.src = url('live/' + src.replace(/\.mp4$/, clipExt)); vid.currentTime = 0;
   vid.play().catch(() => { const c = clip; clip = null; c?.onEnd?.(); });
   return true;
 }

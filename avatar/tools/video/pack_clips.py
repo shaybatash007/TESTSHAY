@@ -4,7 +4,11 @@ import imageio.v3 as iio, imageio
 SRC, OUT = sys.argv[1], sys.argv[2]           # /tmp/claude-0/ltx/clips  avatar/live
 mf = json.load(open(f'{OUT}/manifest.json')); mf['clips'] = {}
 def write(frames, path):
+    # H.264 mp4 for Safari/Chrome, VP9 webm for browsers without H.264 (the app picks with canPlayType)
     w = imageio.get_writer(path, fps=24, codec='libx264', quality=8, pixelformat='yuv420p', macro_block_size=16, ffmpeg_params=['-movflags', '+faststart'])
+    for f in frames: w.append_data(f)
+    w.close()
+    w = imageio.get_writer(path[:-4] + '.webm', fps=24, codec='libvpx-vp9', pixelformat='yuv420p', macro_block_size=16, ffmpeg_params=['-crf', '32', '-b:v', '0', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4'])
     for f in frames: w.append_data(f)
     w.close()
 for d in sorted(glob.glob(f'{SRC}/*/')):
