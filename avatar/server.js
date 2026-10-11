@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const PORT = process.env.PORT || 5190;
 const MODEL = process.env.AVATAR_MODEL || 'claude-sonnet-5-5';
-const TYPES = { '.webp': 'image/webp', '.json': 'application/json', '.jpg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const TYPES = { '.webp': 'image/webp', '.json': 'application/json', '.jpg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.mp4': 'video/mp4' };
 
 const BASE = `You are "Noa", an original fictional character: an athletic, expressive young woman who talks with the user live through a phone app.
 Reply in the user's language (default Hebrew). Keep replies short (1-3 sentences), natural and spoken-style, since they are read aloud.

@@ -185,15 +185,42 @@ function setOutfit(id) {
   markPanel();
 }
 
+
+// ---------- real video clips (image-to-video, landing exactly on the photos) ----------
+const vid = document.createElement('video'); vid.muted = true; vid.playsInline = true; vid.setAttribute('playsinline', ''); vid.preload = 'auto'; vid.crossOrigin = 'anonymous';
+const vtex = gl.createTexture(); let clip = null;
+function hasClip(name) { return !!MF?.clips?.[S.outfit]?.[name]; }
+function playClip(name, onEnd) {
+  const src = MF?.clips?.[S.outfit]?.[name]; if (!src) return false;
+  clip = { name, onEnd, ready: false }; vid.src = url('live/' + src); vid.currentTime = 0;
+  vid.play().catch(() => { const c = clip; clip = null; c?.onEnd?.(); });
+  return true;
+}
+vid.addEventListener('ended', () => { const c = clip; clip = null; c?.onEnd?.(); });
+vid.addEventListener('playing', () => { if (clip) clip.ready = true; });
+function snapScene(s) { S.scene = s; S.fade = 1; S.fadeFrom = null; S.sceneUntil = 0; slot.A = null; slot.B = null; }
+// pose = video into the pose, hold the photo (face alive), video back out
+function goPose(pose, hold, mood) {
+  if (clip) return; setMood(mood, hold + 4);
+  const into = pose === 'back' ? 'turn' : 'to_' + pose;
+  if (S.scene === pose) { S.poseReturn = now() + hold; return; }
+  if (S.scene !== 'main' || !playClip(into, () => { snapScene(pose); if (pose === 'wave' && hasClip('wave_loop')) playClip('wave_loop', () => { S.poseReturn = now() + 0.4; }); else S.poseReturn = now() + hold; })) { showScene(pose, hold); return; }
+}
+function returnFromPose() {
+  const pose = S.scene, back = (pose === 'back' ? 'turn' : 'to_' + pose) + '_rev';
+  if (!playClip(back, () => snapScene('main'))) showScene('main');
+}
+
 // ---------- actions ----------
 const quip = (text, ms = 1500) => { if (S.speaking) return; bubble.hidden = false; bubble.textContent = text; clearTimeout(quip.t); quip.t = setTimeout(() => { if (!S.speaking) bubble.hidden = true; }, ms); };
 const setMood = (m, sec = 2.5) => { S.mood = m; S.moodUntil = now() + sec; };
 const IDLE = { soft: 'tender', normal: 'neutral', firm: 'serious' };
 const MOOD_EXPR = { neutral: 'neutral', happy: 'smile', playful: 'smirk', surprised: 'surprised', serious: 'serious', sad: 'sad', tender: 'tender', grin: 'grin', laugh: 'laugh' };
 const ACT = {
-  flex: () => { showScene('flex', 4.5); setMood('playful', 4.5); }, flexL: () => { showScene('flexL', 3.8); setMood('playful', 3.8); }, flexR: () => { showScene('flexR', 3.8); setMood('playful', 3.8); },
-  wave: () => { showScene('wave', 3.6); setMood('happy', 3.6); }, hips: () => { showScene('hips', 4.2); setMood('serious', 4.2); },
-  smile: () => { S.smileBoost = now() + 4.5; setMood('grin', 4.5); }, laugh: () => { S.laughUntil = now() + 3; setMood('laugh', 3); sp.hy.kick(2); },
+  flex: () => goPose('flex', 3.5, 'playful'), flexL: () => goPose('flexL', 3, 'playful'), flexR: () => goPose('flexR', 3, 'playful'),
+  wave: () => goPose('wave', 1.5, 'happy'), hips: () => goPose('hips', 3.5, 'serious'),
+  smile: () => { S.smileBoost = now() + 4.5; setMood('grin', 4.5); },
+  laugh: () => { if (S.scene === 'main' && !clip && playClip('laugh', () => {})) { setMood('happy', 3); return; } S.laughUntil = now() + 3; setMood('laugh', 3); },
   turn: () => startTurn('back'), front: () => startTurn('main'),
   wink: () => { S.wink = 1; setMood('playful', 1.3); }, blink: () => { S.forceBlink = 1; },
   surprised: () => setMood('surprised', 2.4), sad: () => setMood('sad', 3.2), serious: () => setMood('serious', 4),
@@ -204,7 +231,7 @@ const ACT = {
   lookAtMe: () => { S.glance = { x: 0, y: 0 }; S.glanceUntil = now() + 2.5; },
 };
 for (const id of ['gym', 'run', 'beach', 'tropic', 'evening', 'casual', 'black']) ACT['outfit_' + id] = () => { setOutfit(id); setMood('happy', 2.5); };
-function startTurn(to) { if (S.scene === to) return; showScene(to, to === 'back' ? 6.5 : 0, 0.45); }
+function startTurn(to) { if (S.scene === to) return; if (to === 'back') goPose('back', 4, 'happy'); else if (S.scene === 'back') { S.poseReturn = 0; returnFromPose(); } else showScene(to); }
 const act = (n) => (ACT[n] ? (ACT[n](), true) : false);
 const CMDS = [
   [/תסתובבי חזרה|תחזרי|פני אלי|תסתכלי עלי|תסתכלי אלי|turn back|face me|come back/, 'front'],
@@ -326,6 +353,10 @@ function frame() {
 
   // timers
   if (S.sceneUntil && t > S.sceneUntil) { S.sceneUntil = 0; showScene('main'); }
+  if (S.poseReturn && t > S.poseReturn && !clip) { S.poseReturn = 0; returnFromPose(); }
+  if (!clip && S.scene === 'main' && S.fade >= 1 && !S.speaking && !S.thinking && !down && t > (S.nextIdleClip ??= t + 6)) {
+    S.nextIdleClip = t + 9 + Math.random() * 10; const pick = ['idle_a', 'idle_b'].filter(hasClip); if (pick.length) playClip(pick[Math.floor(Math.random() * pick.length)], () => {});
+  }
   if (S.fade < 1) S.fade = Math.min(1, S.fade + dt / (S.fadeDur || 0.35));
   if (S.turn) {
     const k = (t - S.turn.t0) / 0.95;
@@ -384,6 +415,13 @@ function frame() {
   S.squash = 1;
   // draw
   resize(); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0.42, 0.46, 0.5, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  if (clip && clip.ready && vid.readyState >= 2) {
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, vtex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, vid);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    setGlobalUniforms(geomOf('main'), t, st); gl.uniform2f(U.uSize, vid.videoWidth, vid.videoHeight); gl.uniform1f(U.uAlpha, 1); gl.uniform1f(U.uFace, 0);
+    gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0); return;
+  }
   const g = geomOf(faceScene && MF.scenes[faceScene] ? faceScene : 'main'); setGlobalUniforms(g, t, st);
   if (S.fade < 1 && S.fadeFrom) {
     const gf = geomOf(S.fadeFrom.scene === 'back' ? 'main' : S.fadeFrom.scene); setGlobalUniforms(gf, t, st);
@@ -460,4 +498,4 @@ if (!SR) mic.hidden = true; else { const rec = new SR(); rec.lang = 'he-IL'; rec
   act('wave'); say('היי, אני נועה. תיגע בי, תדבר איתי, או תגיד "תעשי שרירים", "תחייכי", "תסתובבי" או "תלבשי בגד ים".', 'happy');
   requestAnimationFrame(frame);
 })();
-window.__noa = { act, say, startTalk, S, sp, slot, get MF() { return MF; }, setOutfit, showScene, texCache };
+window.__noa = { act, playClip, get clip() { return clip; }, say, startTalk, S, sp, slot, get MF() { return MF; }, setOutfit, showScene, texCache };

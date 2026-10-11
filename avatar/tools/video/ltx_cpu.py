@@ -12,6 +12,7 @@ frames = int(sys.argv[4]) if len(sys.argv) > 4 else 49
 width = int(sys.argv[5]) if len(sys.argv) > 5 else 512
 height = int(sys.argv[6]) if len(sys.argv) > 6 else 768
 seed = int(sys.argv[7]) if len(sys.argv) > 7 else 7
+end_img = sys.argv[8] if len(sys.argv) > 8 else None   # optional last frame: the clip lands exactly on this photo
 t0 = time.time()
 
 # 1) text embeddings (T5-XXL bf16), cached per prompt, then the encoder is freed
@@ -42,13 +43,14 @@ pipe = LTXConditionPipeline(transformer=tr, vae=vae, scheduler=sch, text_encoder
 pipe.vae.enable_tiling()
 print('load', round(time.time() - t0), flush=True)
 image = Image.open(img).convert('RGB').resize((width, height), Image.LANCZOS)
-cond = LTXVideoCondition(image=image, frame_index=0)
+conds = [LTXVideoCondition(image=image, frame_index=0)]
+if end_img: conds.append(LTXVideoCondition(image=Image.open(end_img).convert('RGB').resize((width, height), Image.LANCZOS), frame_index=frames - 1))
 g = torch.Generator().manual_seed(seed)
 lat_path = out + '.latents.pt'
 if os.path.exists(lat_path):
     latents = torch.load(lat_path)
 else:
-    latents = pipe(conditions=[cond], prompt_embeds=emb.to(DT), prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
+    latents = pipe(conditions=conds, prompt_embeds=emb.to(DT), prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
                    timesteps=[1000, 993, 987, 981, 975, 909, 725, 0.03], guidance_scale=1.0, image_cond_noise_scale=0.0, guidance_rescale=0.7,
                    generator=g, output_type='latent').frames
     torch.save(latents, lat_path)
