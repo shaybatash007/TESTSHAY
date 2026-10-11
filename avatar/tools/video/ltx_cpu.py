@@ -34,7 +34,8 @@ from diffusers import LTXConditionPipeline, LTXVideoTransformer3DModel, Autoenco
 from diffusers.pipelines.ltx.pipeline_ltx_condition import LTXVideoCondition
 from diffusers.utils import export_to_video
 ck = f'{W}/ltxv-2b-0.9.8-distilled.safetensors'
-tr = LTXVideoTransformer3DModel.from_single_file(ck, torch_dtype=torch.float32)
+DT = torch.bfloat16 if os.environ.get('LTX_BF16', '1') == '1' else torch.float32   # bf16 runs on the CPU's AMX units
+tr = LTXVideoTransformer3DModel.from_single_file(ck, torch_dtype=DT)
 vae = AutoencoderKLLTXVideo.from_single_file(ck, torch_dtype=torch.float32)
 sch = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=False, shift=1.0)
 pipe = LTXConditionPipeline(transformer=tr, vae=vae, scheduler=sch, text_encoder=None, tokenizer=None)
@@ -47,10 +48,11 @@ lat_path = out + '.latents.pt'
 if os.path.exists(lat_path):
     latents = torch.load(lat_path)
 else:
-    latents = pipe(conditions=[cond], prompt_embeds=emb, prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
+    latents = pipe(conditions=[cond], prompt_embeds=emb.to(DT), prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
                    timesteps=[1000, 993, 987, 981, 975, 909, 725, 0.03], guidance_scale=1.0, image_cond_noise_scale=0.0, guidance_rescale=0.7,
                    generator=g, output_type='latent').frames
     torch.save(latents, lat_path)
+latents = latents.float()
 print('denoised', round(time.time() - t0), tuple(latents.shape), flush=True)
 # free the transformer before decoding (the decode is what ran out of memory)
 pipe.transformer = None; del tr; gc.collect()
