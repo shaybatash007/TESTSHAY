@@ -43,8 +43,25 @@ print('load', round(time.time() - t0), flush=True)
 image = Image.open(img).convert('RGB').resize((width, height), Image.LANCZOS)
 cond = LTXVideoCondition(image=image, frame_index=0)
 g = torch.Generator().manual_seed(seed)
-video = pipe(conditions=[cond], prompt_embeds=emb, prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
-             timesteps=[1000, 993, 987, 981, 975, 909, 725, 0.03], guidance_scale=1.0, decode_timestep=0.05, decode_noise_scale=0.025,
-             image_cond_noise_scale=0.0, guidance_rescale=0.7, generator=g, output_type='pil').frames[0]
+lat_path = out + '.latents.pt'
+if os.path.exists(lat_path):
+    latents = torch.load(lat_path)
+else:
+    latents = pipe(conditions=[cond], prompt_embeds=emb, prompt_attention_mask=mask, width=width, height=height, num_frames=frames,
+                   timesteps=[1000, 993, 987, 981, 975, 909, 725, 0.03], guidance_scale=1.0, image_cond_noise_scale=0.0, guidance_rescale=0.7,
+                   generator=g, output_type='latent').frames
+    torch.save(latents, lat_path)
+print('denoised', round(time.time() - t0), tuple(latents.shape), flush=True)
+# free the transformer before decoding (the decode is what ran out of memory)
+pipe.transformer = None; del tr; gc.collect()
+lat = pipe._denormalize_latents(latents, vae.latents_mean, vae.latents_std, vae.config.scaling_factor)
+ts = None
+if vae.config.timestep_conditioning:
+    noise = torch.randn(lat.shape, generator=g)
+    ts = torch.tensor([0.05])
+    lat = (1 - 0.025) * lat + 0.025 * noise
+with torch.no_grad():
+    vid = vae.decode(lat, ts, return_dict=False)[0]
+video = pipe.video_processor.postprocess_video(vid, output_type='pil')[0]
 export_to_video(video, out, fps=24)
 print('DONE', round(time.time() - t0), out, flush=True)
