@@ -201,8 +201,9 @@ vid.addEventListener('ended', () => { const c = clip; clip = null; c?.onEnd?.();
 vid.addEventListener('playing', () => { if (clip) clip.ready = true; });
 function snapScene(s) { S.scene = s; S.fade = 1; S.fadeFrom = null; S.sceneUntil = 0; slot.A = null; slot.B = null; }
 // pose = video into the pose, hold the photo (face alive), video back out
+function stopIdle() { if (clip && /^idle_/.test(clip.name)) { clip = null; vid.pause(); } }
 function goPose(pose, hold, mood) {
-  if (clip) return; setMood(mood, hold + 4);
+  stopIdle(); if (clip) return; setMood(mood, hold + 4);
   const into = pose === 'back' ? 'turn' : 'to_' + pose;
   if (S.scene === pose) { S.poseReturn = now() + hold; return; }
   if (S.scene !== 'main' || !playClip(into, () => { snapScene(pose); if (pose === 'wave' && hasClip('wave_loop')) playClip('wave_loop', () => { S.poseReturn = now() + 0.4; }); else S.poseReturn = now() + hold; })) { showScene(pose, hold); return; }
@@ -221,7 +222,7 @@ const ACT = {
   flex: () => goPose('flex', 3.5, 'playful'), flexL: () => goPose('flexL', 3, 'playful'), flexR: () => goPose('flexR', 3, 'playful'),
   wave: () => goPose('wave', 1.5, 'happy'), hips: () => goPose('hips', 3.5, 'serious'),
   smile: () => { S.smileBoost = now() + 4.5; setMood('grin', 4.5); },
-  laugh: () => { if (S.scene === 'main' && !clip && playClip('laugh', () => {})) { setMood('happy', 3); return; } S.laughUntil = now() + 3; setMood('laugh', 3); },
+  laugh: () => { stopIdle(); if (S.scene === 'main' && !clip && playClip('laugh', () => {})) { setMood('happy', 3); return; } S.laughUntil = now() + 3; setMood('laugh', 3); },
   turn: () => startTurn('back'), front: () => startTurn('main'),
   wink: () => { S.wink = 1; setMood('playful', 1.3); }, blink: () => { S.forceBlink = 1; },
   surprised: () => setMood('surprised', 2.4), sad: () => setMood('sad', 3.2), serious: () => setMood('serious', 4),
@@ -233,7 +234,7 @@ const ACT = {
 };
 for (const id of ['gym', 'run', 'beach', 'tropic', 'evening', 'casual', 'black']) ACT['outfit_' + id] = () => { setOutfit(id); setMood('happy', 2.5); };
 function startTurn(to) { if (S.scene === to) return; if (to === 'back') goPose('back', 4, 'happy'); else if (S.scene === 'back') { S.poseReturn = 0; returnFromPose(); } else showScene(to); }
-const act = (n) => (ACT[n] ? (ACT[n](), true) : false);
+const act = (n) => (ACT[n] ? (stopIdle(), ACT[n](), true) : false);
 const CMDS = [
   [/תסתובבי חזרה|תחזרי|פני אלי|תסתכלי עלי|תסתכלי אלי|turn back|face me|come back/, 'front'],
   [/תסתובבי|סיבוב|תסתובב|turn around|spin|show me your back/, 'turn'],
@@ -268,7 +269,7 @@ function regionOf(p) {
   return { r: 'torso', sx };
 }
 function react({ r, sx }) {
-  const n = now(); S.bounce = 0.6;
+  const n = now(); S.bounce = 0.6; stopIdle();
   switch (r) {
     case 'forehead': setMood('surprised', 0.9); sp.hy.kick(-2); quip('היי!'); break;
     case 'eyes': S.forceBlink = 1; setMood('playful', 1.1); quip('אוי!'); break;
@@ -322,7 +323,7 @@ function visemeSeq(text) {
   return out.length ? out : ['sil'];
 }
 const talk = { seq: [], t0: 0, dur: 1, active: false };
-function startTalk(text, d) { talk.seq = visemeSeq(text); talk.t0 = now(); talk.dur = Math.max(0.8, d); talk.active = true; S.speaking = true; }
+function startTalk(text, d) { stopIdle(); talk.seq = visemeSeq(text); talk.t0 = now(); talk.dur = Math.max(0.8, d); talk.active = true; S.speaking = true; }
 function stopTalk() { talk.active = false; S.speaking = false; }
 
 // ---------- per-frame ----------

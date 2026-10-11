@@ -2,6 +2,7 @@
 import json, os, sys, glob
 import imageio.v3 as iio, imageio
 SRC, OUT = sys.argv[1], sys.argv[2]           # /tmp/claude-0/ltx/clips  avatar/live
+SKIP = set(sys.argv[3].split(',')) if len(sys.argv) > 3 else set()   # outfit/name of clips that failed review
 mf = json.load(open(f'{OUT}/manifest.json')); mf['clips'] = {}
 def write(frames, path):
     # H.264 mp4 for Safari/Chrome, VP9 webm for browsers without H.264 (the app picks with canPlayType)
@@ -14,7 +15,9 @@ def write(frames, path):
 for d in sorted(glob.glob(f'{SRC}/*/')):
     outfit = os.path.basename(d.rstrip('/')); os.makedirs(f'{OUT}/clips/{outfit}', exist_ok=True); lst = {}
     for f in sorted(glob.glob(f'{d}*.mp4')):
-        name = os.path.basename(f)[:-4]; fr = iio.imread(f)
+        name = os.path.basename(f)[:-4]
+        if f'{outfit}/{name}' in SKIP: continue
+        fr = iio.imread(f)
         write(fr, f'{OUT}/clips/{outfit}/{name}.mp4'); lst[name] = f'clips/{outfit}/{name}.mp4'
         if name.startswith('to_') or name == 'turn':
             write(fr[::-1], f'{OUT}/clips/{outfit}/{name}_rev.mp4'); lst[name + '_rev'] = f'clips/{outfit}/{name}_rev.mp4'
