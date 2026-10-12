@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Noa Live 3D</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <div class="modes" role="tablist">
+    <button data-mode="soft">רכה</button>
+    <button data-mode="normal" class="on">רגילה</button>
+    <button data-mode="firm">קשוחה</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="avatar" aria-label="Noa"></canvas><div id="loading">טוענת…</div>
+    <div id="bubble" hidden></div>
+  </div>
+
+  <div class="chips">
+    <button id="styleBtn" class="styleBtn">סגנון ▾</button><button data-act="flex">שרירים</button><button data-act="smile">חיוך</button><button data-act="turn">סיבוב</button>
+    <button data-act="dance">ריקוד</button><button data-act="full">גוף מלא</button><button data-act="wink">קריצה</button><button data-act="wave">נופפי</button><button data-act="hips">מותניים</button><button data-act="serious">רצינית</button>
+  </div>
+  <div id="styleBar" hidden>
+    <div class="lbl">בגדים</div><div class="row" id="outfitRow"></div>
+    <div class="lbl">שיער</div><div class="row"><span class="grp" id="hairLen"></span><span class="grp" id="hairCol"></span></div>
+    <label class="slider"><span class="lbl">שריריות</span><input type="range" id="muscle" min="0" max="100" value="60"></label>
+  </div>
+  <div id="log" aria-live="polite"></div>
+
+  <form id="form">
+    <button type="button" id="mic" title="דבר">🎤</button>
+    <input id="text" placeholder="כתוב לה: תרקדי, תעשי שרירים, תסתובבי…" autocomplete="off">
+    <button type="submit">שלח</button>
+  </form>
+  <div class="foot">
+    <label class="voice"><input type="checkbox" id="voice" checked> קול</label>
+    <button type="button" id="loadAvatar" class="link">טען אווטאר משלך (GLB)</button>
+    <button type="button" id="resetAvatar" class="link">איפוס</button>
+    <input type="file" id="glb" accept=".glb,model/gltf-binary" hidden>
+  </div>
+</main>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/"}}</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
