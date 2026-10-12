@@ -1,7 +1,7 @@
 #!/bin/bash
 # Elena (invented character): real motion clips, each pinned to a photo at both ends (first/last-frame conditioning).
-S=/tmp/claude-0/elena6; O=$S/clips; mkdir -p $O; M=$S/base.jpg
-D="A very muscular tanned female physique competitor with tattooed arms and leg in a charcoal grey string bikini on a wooden beach boardwalk, golden sunset light, sea behind her. Static camera, realistic, smooth natural motion."
+S=/tmp/claude-0/elena7; O=$S/clips; mkdir -p $O; M=$S/base.jpg
+D="A lean athletic tanned woman with full sleeve tattoos and a thigh tattoo in a charcoal grey bikini on a wooden beach boardwalk, golden sunset light, sea behind her. Static camera, realistic, smooth natural motion."
 run(){ [ -s $O/$1.mp4 ] && return; LTX_BF16=1 python3 -I /home/user/TESTSHAY/avatar/tools/video/ltx_cpu.py "$2" $O/$1.mp4 "$D $4" 49 512 768 $5 "$3" > $O/$1.log 2>&1; echo "$1 $(grep -a DONE $O/$1.log)"; }
 run idle_a $M $M "She stands relaxed facing the camera, breathes calmly, the sea wind blows through her long ponytail, she blinks and smiles." 3
 run to_wave $M $S/wave.jpg "She lifts her right hand and waves hello with a big friendly smile." 5
