@@ -29,6 +29,13 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .fx .tag { position: absolute; top: -10px; white-space: nowrap; font-size: 11px; line-height: 1.25; letter-spacing: .07em; text-shadow: 0 1px 6px rgba(0,0,0,.55); animation: tag 1.8s ease-out forwards; direction: ltr; }
 .fx .tag b { display: block; font-size: 12.5px; font-weight: 700; }
 .fx .tag span { display: block; font-size: 12px; direction: rtl; }
+.press { position: absolute; pointer-events: none; width: 0; height: 0; z-index: 2; }
+.press .shade { position: absolute; width: 64px; height: 64px; border-radius: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: transform .35s ease-out, opacity .35s; background: radial-gradient(circle, rgba(60,30,20,.30) 0 30%, rgba(60,30,20,.12) 50%, rgba(255,255,255,.18) 66%, transparent 72%); mix-blend-mode: multiply; }
+.press.on .shade { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.press .halo { position: absolute; width: 74px; height: 74px; border-radius: 50%; transform: translate(-50%, -50%); border: 1.5px solid rgba(160,240,255,.9); box-shadow: 0 0 14px rgba(120,220,255,.55), inset 0 0 10px rgba(120,220,255,.35); animation: halo 1.4s ease-in-out infinite; }
+.press .halo.b { width: 104px; height: 104px; opacity: .5; animation-delay: .35s; }
+@keyframes halo { 50% { transform: translate(-50%, -50%) scale(1.08); opacity: .55; } }
+#say .who.me { color: #9fe8ff; }
 @keyframes ring { from { width: 14px; height: 14px; opacity: 1; } to { width: 120px; height: 120px; opacity: 0; } }
 @keyframes dot { 0% { opacity: 1; } 70% { opacity: .9; } 100% { opacity: 0; } }
 @keyframes tag { 0% { opacity: 0; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
@@ -274,18 +281,31 @@ function fx(cx, cy, reg) {
     `<div class="tag" style="${leftSide ? 'right:44px;text-align:right' : 'left:44px'}"><b>TOUCH DETECTED</b>${reg ? `<span>${reg.he}</span>` : ''}</div>`;
   app.append(el); setTimeout(() => el.remove(), 1900);
 }
-let down = false;
+// while the finger stays down, a glowing marker sticks to the spot with a soft press shading; holding gets its own reaction
+const HOLD = { face: ['חחח, אתה מסמיק אותי', 'נו… 🙂'], hair: ['תשאיר לי את הקוקו!'], hand: ['חחח, אתה לא עוזב?', 'יד חזקה, אה?'], arm: ['תרגיש, הכל קשה 💪', 'שנה של אימונים'],
+  shoulder: ['הכתפיים שלי מכווצות מהאימון'], chest: ['היי, בעדינות 🙂'], belly: ['חחח מדגדג!', 'תרגיש, הכל אמיתי'], legs: ['רגליים של ריצה 🏃‍♀️'] };
+let down = false, press = null, holdT = null;
+const placeAt = (el, cx, cy) => { const r = app.getBoundingClientRect(); el.style.left = cx - r.left + 'px'; el.style.top = cy - r.top + 'px'; };
 cv.addEventListener('pointerdown', (e) => {
   down = true; $('#hint').style.opacity = 0; $('#sheet').classList.remove('on');
+  cv.setPointerCapture?.(e.pointerId);
   const reg = regionAt(toImg(e.clientX, e.clientY));
   fx(e.clientX, e.clientY, reg); navigator.vibrate?.(reg ? 14 : 5);
+  if (reg) {
+    press = document.createElement('div'); press.className = 'press'; press.innerHTML = '<div class="shade"></div><div class="halo"></div><div class="halo b"></div>';
+    placeAt(press, e.clientX, e.clientY); app.append(press); requestAnimationFrame(() => press?.classList.add('on'));
+    clearTimeout(holdT); holdT = setTimeout(() => { if (!down) return; navigator.vibrate?.([10, 40, 10]); const a = HOLD[reg.r] || ['כן?']; still(reg.r === 'face' ? 'soft' : S.cur === 'base' ? 'soft' : S.cur, 2.5); say(a[Math.floor(Math.random() * a.length)], false); }, 850);
+  }
   if (reg && !(clip && !/^idle_/.test(clip.name))) react(reg);
 });
-addEventListener('pointerup', () => (down = false)); addEventListener('pointercancel', () => (down = false));
+cv.addEventListener('pointermove', (e) => { if (down && press) placeAt(press, e.clientX, e.clientY); });
+const lift = () => { down = false; clearTimeout(holdT); if (press) { const p = press; press = null; p.classList.remove('on'); p.style.transition = 'opacity .4s'; p.style.opacity = 0; setTimeout(() => p.remove(), 420); } };
+addEventListener('pointerup', lift); addEventListener('pointercancel', lift);
 
 // ---------- speech ----------
 const sayText = $('#sayText');
 function say(text, speak = true) {
+  const w = document.querySelector('#say .who'); w.textContent = 'ELENA:'; w.classList.remove('me');
   sayText.textContent = text;
   const dur = Math.max(1.0, text.length / 13);
   const start = () => { stopIdleClip(); S.speakingUntil = now() + dur; S.talkT = 0; };
@@ -316,10 +336,13 @@ async function ask() {
   let out = (r.text || '').trim(), act = null; const m = out.match(/^\[do:(\w+)\]\s*/); if (m) { act = m[1]; out = out.slice(m[0].length); }
   return { reply: out, act };
 }
+const who = $('#say .who');
+function showUser(text) { who.textContent = 'YOU:'; who.classList.add('me'); sayText.textContent = text; }
 async function send(text) {
   history.push({ role: 'user', content: text });
+  showUser(text);
   const cmd = parse(text); if (cmd) ACT[cmd]();
-  sayText.textContent = '…';
+  await new Promise((r) => setTimeout(r, 900));
   let out; try { out = await ask(); } catch { const pool = OFFLINE[S.mode]; out = { reply: cmd ? 'הנה!' : pool[Math.floor(Math.random() * pool.length)] }; }
   if (!cmd && out.act && ACT[out.act]) ACT[out.act]();
   history.push({ role: 'assistant', content: out.reply }); say(out.reply);
