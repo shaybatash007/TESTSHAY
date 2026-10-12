@@ -7,6 +7,4 @@ run idle_a $M $M "She stands relaxed facing the camera, breathes calmly, the sea
 run to_wave $M $S/wave.jpg "She lifts her right hand and waves hello with a big friendly smile." 5
 run to_flex $M $S/flex.jpg "She raises both arms and flexes her biceps in a double biceps pose, confident smile." 11
 run to_hips $M $S/hips.jpg "She puts both hands on her hips in a confident power pose." 7
-run dance $M $M "She dances playfully in place to music, swaying her hips and shoulders and moving her arms, smiling, then returns to standing." 13
-run idle_b $M $M "She stands relaxed, shifts her weight to one leg and back, her long hair swaying in the wind, smiling softly." 23
 echo ALLCLIPS
