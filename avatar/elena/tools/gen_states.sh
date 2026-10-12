@@ -2,7 +2,7 @@
 # Generate every still Elena needs from one base photo (base.jpg in DIR): poses, expressions, blink / speech, outfits, poses per outfit.
 # Usage: gen_states.sh DIR   (edits with FLUX.2 [klein] on Workers AI; skips files that already exist)
 DIR=$1; cd "$DIR" || exit 1; A=9213747898b0eef6d720f037cb32bee4
-KEEP="Keep her identity, face, hair, tattoos, body, skin, camera framing, background and lighting exactly identical"
+KEEP="Keep her identity, face, hair, tattoos, body, flawless smooth skin, camera framing, background and lighting exactly identical. Clean smooth underarms, no body hair, no blemishes"
 declare -A E=(
  [wave]="she raises her right hand to shoulder height and waves hello at the camera with an open palm, big smile"
  [flex]="she raises both arms and flexes her biceps in a confident double biceps pose, playful proud smile"
