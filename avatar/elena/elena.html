@@ -80,7 +80,7 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
     <h4>אופי</h4>
     <div class="modes"><button data-mode="soft">רכה</button><button data-mode="normal" class="on">רגילה</button><button data-mode="firm">קשוחה</button></div>
     <h4>אפשר להגיד לה</h4>
-    <p>תעשי שרירים · תנופפי · ידיים על המותניים · תרקדי · תחייכי · תלבשי אדום / לבן / שחור — או סתם לדבר איתה.</p>
+    <p>תעשי שרירים · תנופפי · ידיים על המותניים · תרקדי · תחייכי · תלבשי אדום / לבן / אפור — או סתם לדבר איתה.</p>
   </div>
   <div id="outfits" dir="ltr"></div>
   <div class="bottom">
@@ -104,7 +104,7 @@ const now = () => performance.now() / 1000;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const app = $('#app'), cv = $('#cv'), ctx = cv.getContext('2d');
 const POSES = ['base', 'soft', 'wave', 'flex', 'hips', 'lookL', 'lookR'];
-const OUTFITS = { black: { he: 'שחור', sw: '#151515' }, red: { he: 'אדום', sw: '#d4182b' }, white: { he: 'לבן', sw: '#f2f2ee' } };
+const OUTFITS = { black: { he: 'גרפיט', sw: '#4a4b50' }, red: { he: 'אדום', sw: '#d4182b' }, white: { he: 'לבן', sw: '#f2f2ee' } };
 const W = META.size[0], H = META.size[1];
 const IMG = {}, PATCH = {}, BACK = {};
 const load = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -223,7 +223,7 @@ async function setOutfit(o) {
   await loadOutfit(o);
   S.fromOutfit = S.outfit; S.from = S.cur; S.outfit = o; S.cur = 'base'; S.fade = 0; S.back = 0; markOutfit();
   setTimeout(() => pose('hips', 2.4), 500);
-  say({ black: 'השחור תמיד עובד.', red: 'אדום! אהבתי.', white: 'לבן לשקיעה, מושלם.' }[o]);
+  say({ black: 'גרפיט, הקלאסי שלי.', red: 'אדום! אהבתי.', white: 'לבן לשקיעה, מושלם.' }[o]);
 }
 ob.addEventListener('click', (e) => { const o = e.target.dataset?.o; if (o) setOutfit(o); });
 
@@ -301,7 +301,7 @@ function say(text, speak = true) {
 // ---------- commands + chat ----------
 const ACT = { flex: () => pose('flex', 3.2), wave: () => pose('wave', 2.6), hips: () => pose('hips', 3.2), smile: () => still('soft', 3), lookL: () => still('lookL', 2.6), lookR: () => still('lookR', 2.6), dance,
   red: () => setOutfit('red'), white: () => setOutfit('white'), black: () => setOutfit('black') };
-const CMDS = [[/תרקדי|ריקוד|dance/, 'dance'], [/אדום|red/, 'red'], [/לבן|white/, 'white'], [/שחור|black/, 'black'], [/שריר|פלקס|תכופפי|flex|muscle|bicep/, 'flex'],
+const CMDS = [[/תרקדי|ריקוד|dance/, 'dance'], [/אדום|red/, 'red'], [/לבן|white/, 'white'], [/שחור|אפור|גרפיט|black|grey|gray/, 'black'], [/שריר|פלקס|תכופפי|flex|muscle|bicep/, 'flex'],
   [/תנופפי|נפנוף|נפנפי|שלום|wave|hello/, 'wave'], [/מותניים|power|hips/, 'hips'], [/תחייכי|חיוך|smile/, 'smile'], [/שמאל|left/, 'lookL'], [/ימין|right/, 'lookR']];
 const parse = (t) => { t = t.toLowerCase(); for (const [re, a] of CMDS) if (re.test(t)) return a; return null; };
 const OFFLINE = { soft: ['אני כאן, ספר לי עוד.', 'זה נשמע חשוב לך.'], normal: ['חחח, אהבתי. ועוד?', 'מעניין! מה עוד?'], firm: ['קדימה, בלי תירוצים.', 'שוב. יותר ברור.'] };
