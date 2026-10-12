@@ -1,6 +1,6 @@
 # MAY AI – concept
 
-Invented photoreal character (text prompt only, FLUX.2 [klein] on Workers AI) in three swimsuits, built like `../elena` with more interaction:
+Invented photoreal character (text prompt only, FLUX.2 [klein] 9B on Workers AI) in three swimsuits, built like `../elena` with more interaction:
 tap / hold / double-tap (laugh) / stroke the hair downward (hand through hair) / tap beside her (she looks that way), plus wink, laugh and hair poses,
 voice commands and chat. Non-explicit by design.
 

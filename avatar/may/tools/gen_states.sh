@@ -1,7 +1,7 @@
 #!/bin/bash
 # Generate every still the character needs from one base photo (base.jpg in DIR): poses, expressions, blink / speech, outfits, poses per outfit.
-# Usage: gen_states.sh DIR   (edits with FLUX.2 [klein] on Workers AI; skips files that already exist)
-DIR=$1; cd "$DIR" || exit 1; A=9213747898b0eef6d720f037cb32bee4
+# Usage: gen_states.sh DIR   (edits with FLUX.2 [klein] 9B on Workers AI, MODEL=... to override; skips files that already exist)
+DIR=$1; cd "$DIR" || exit 1; A=9213747898b0eef6d720f037cb32bee4; MODEL=${MODEL:-flux-2-klein-9b}
 KEEP="Keep her identity, face, hair, tattoos, body, flawless smooth skin, camera framing, background and lighting exactly identical. Clean smooth underarms, no body hair, no blemishes"
 declare -A E=(
  [wave]="she raises her right hand to shoulder height and waves hello at the camera with an open palm, big smile"
@@ -21,7 +21,7 @@ declare -A O=([black]="an opaque black sporty bikini with crisscross straps on t
 edit(){ # out input prompt
   [ -s "$1.jpg" ] && return
   for t in 1 2 3 4; do
-    curl -s -m 200 -X POST https://api.cloudflare.com/client/v4/accounts/$A/ai/run/@cf/black-forest-labs/flux-2-klein-4b -F "prompt=Edit this photo: $3. Photorealistic." -F "input_image_0=@$2" -F "width=1024" -F "height=1536" -o "$1.json"
+    curl -s -m 200 -X POST https://api.cloudflare.com/client/v4/accounts/$A/ai/run/@cf/black-forest-labs/$MODEL -F "prompt=Edit this photo: $3. Photorealistic." -F "input_image_0=@$2" -F "width=1024" -F "height=1536" -o "$1.json"
     python3 -I -c "
 import json,base64,sys
 try: d=json.load(open('$1.json'))
